@@ -1,4 +1,4 @@
-# Refine–Retrieve–Reason Fake News Web App
+# WEAVE Web App
 
 An interactive web application for **multimodal short-video misinformation detection**, built on the **Refine–Retrieve–Reason (R³)** framework.
 
