@@ -7,7 +7,7 @@ The application provides an interactive interface for uploading short-form video
 > This repository focuses on the **web application and inference pipeline integration**.
 
 > **Looking for the complete research framework, training pipeline, DSPy optimization, knowledge distillation, and experimental implementation?**  
-> See [Refine-Retrieve-Reason-FakeNews](https://github.com/tyh1003/Refine-Retrieve-Reason-FakeNews.git).
+> See [WEAVE](https://github.com/tyh1003/WEAVE.git).
 
 ---
 
