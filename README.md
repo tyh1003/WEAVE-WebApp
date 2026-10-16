@@ -1536,6 +1536,6 @@ The goal of this repository is to turn that inference framework into an **access
 
 For the complete research implementation, experimental pipeline, prompt optimization, knowledge distillation, and evaluation code, see:
 
-[Refine-Retrieve-Reason-FakeNews](https://github.com/tyh1003/Refine-Retrieve-Reason-FakeNews.git)
+[WEAVE](https://github.com/tyh1003/WEAVE.git)
 
 ---
