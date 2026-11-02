@@ -35,9 +35,8 @@ The web application adds **human-first judgment, evidence inspection, interactiv
 - **Version history:** Preserve and compare the initial analysis (V1) and subsequent versions.
 - **Research tools:** Inspect available evidence assessments, ablations, baselines, version comparisons, and pipeline diagnostics.
 
-<!-- NEW IMAGE: Main result with four judgment cards and reasoning.
-![Verification result](docs/images/result.png)
--->
+<img width="2117" height="1249" alt="螢幕擷取畫面 2026-11-02 151318" src="https://github.com/user-attachments/assets/57a25c22-5c6e-4c90-bb9a-391b6e4dead6" />
+
 
 ## System Workflow
 
@@ -81,9 +80,6 @@ The web application adds **human-first judgment, evidence inspection, interactiv
                 Version Comparison
 ```
 
-<!-- NEW IMAGE: Updated architecture diagram.
-![System architecture](docs/images/architecture.png)
--->
 
 ## Refine–Retrieve–Reason
 
@@ -154,17 +150,21 @@ Retrieved news sources may provide a title, publisher, date, URL, article excerp
 
 **Automatically generated summaries are not independent fact-checking results.** Source provenance and extraction metadata are maintained separately from the concise user-facing presentation.
 
-<!-- NEW IMAGE: News Evidence and Selected News.
-![News evidence](docs/images/news-evidence.png)
--->
+
+
 
 ### Input Correction
 
 Users can inspect `Rc` and `Rv` and correct an intermediate representation when it does not accurately describe the video. A correction creates a new analysis version, preserving the original result.
 
+<img width="1198" height="978" alt="螢幕擷取畫面 2026-11-02 223909" src="https://github.com/user-attachments/assets/88d291da-d475-4319-8c1b-4e2de320fea8" />
+
 ### Selected News
 
 Users can select available retrieved sources to construct a revised external-evidence input (`Kext`) for a new version. This makes it possible to examine how different evidence selections affect the subsequent Student prediction and explanation.
+
+
+<img width="1216" height="1237" alt="螢幕擷取畫面 2026-11-02 225617" src="https://github.com/user-attachments/assets/46f7d9f9-d4e4-402c-abe5-a50deb08bad1" />
 
 ### Version Comparison
 
@@ -172,9 +172,10 @@ The original run is **V1**. Later user-initiated analyses are saved as separate 
 
 A changed prediction does **not** by itself prove that a corrected input or selected source is more reliable.
 
-<!-- NEW IMAGE: Input Correction and Version Comparison.
-![Version comparison](docs/images/version-comparison.png)
--->
+<img width="1172" height="852" alt="螢幕擷取畫面 2026-11-02 232338" src="https://github.com/user-attachments/assets/489502c0-0c1b-4922-9c86-36902cd05d6c" />
+<img width="1169" height="843" alt="螢幕擷取畫面 2026-11-02 232318" src="https://github.com/user-attachments/assets/cb16cbe0-6bbb-4bd5-844d-836c91d1236c" />
+<img width="1347" height="404" alt="螢幕擷取畫面 2026-11-02 232243" src="https://github.com/user-attachments/assets/bedaf185-097c-4edd-bbb3-00a9551a9c8a" />
+
 
 ## Advanced Research
 
