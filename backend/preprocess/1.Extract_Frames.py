@@ -281,6 +281,8 @@ def main():
         )
     )
 
+    base_dir = os.getenv("WEAVE_WORK_DIR", base_dir)
+
     output_folder = os.path.join(
         base_dir,
         "preprocess_output",

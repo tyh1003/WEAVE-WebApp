@@ -24,6 +24,8 @@ BASE_DIR = os.path.dirname(
     )
 )
 
+BASE_DIR = os.getenv("WEAVE_WORK_DIR", BASE_DIR)
+
 AUDIO_DIR = os.path.join(
     BASE_DIR,
     "preprocess_output",

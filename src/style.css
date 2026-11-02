@@ -25,3 +25,5 @@ body {
 .font-game {
   font-family: "Comic Sans MS", "Chalkboard SE", "PingFang TC", sans-serif;
 }
+
+body {background:linear-gradient(125deg,#fceef3 0%,#fcf7e8 25%,#edf8f1 50%,#edf3fc 75%,#f3edfb 100%);color:#211e29;background-attachment:fixed;}

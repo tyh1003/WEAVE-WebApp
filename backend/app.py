@@ -1,3 +1,4 @@
+from evidence_assessment import attach_saved_assessment
 import json
 import os
 import re
@@ -82,6 +83,11 @@ def data_matches_current_video(data):
     current_filename = process_status.get("filename")
 
     if not current_filename:
+        return False
+
+    if data.get("analysis_id") and data["analysis_id"] != process_status.get("analysis_id"):
+        return False
+    if data.get("run_id") is not None and data["run_id"] != process_status.get("run_id"):
         return False
 
     return normalize_video_id(data.get("vid")) == normalize_video_id(current_filename)
@@ -183,19 +189,34 @@ def add_student_compat_fields(data):
 
     return result
 
+from research_api import bp as research_bp
+app.config["RESEARCH_GT_LOOKUP"] = lambda filename: (get_correct_answer_fields(filename)["correct_answer_label"], normalize_video_id(filename))
+app.register_blueprint(research_bp)
+
+@app.before_request
+def protect_legacy_outputs():
+    if request.path in {"/upload", "/status", "/result", "/student_result"}:
+        return jsonify(error="Use token-scoped /experiments research APIs; legacy global outputs are not exposed"), 410
+
+
 @app.route("/translate", methods=["POST"])
 def translate():
     data = request.get_json(silent=True) or {}
     texts = data.get("texts", {})
+    target = data.get('target_language', 'en')
 
-    if not isinstance(texts, dict) or not texts:
+    if target not in ('en', 'zh') or not isinstance(texts, dict) or not texts or any(not isinstance(v, str) for v in texts.values()):
         return jsonify({
             "success": False,
             "error": "texts must be a non-empty JSON object"
         }), 400
 
     try:
-        translated = translate_to_english(texts)
+        if target == 'en':
+            translated = translate_to_english(texts)
+        else:
+            from translator import translate_to_language
+            translated = translate_to_language(texts, target)
 
         return jsonify({
             "success": True,
@@ -217,6 +238,8 @@ def home():
 def get_status():
     status = dict(process_status)
     status.update(get_correct_answer_fields(status.get("filename")))
+    if status.get("student_result"):
+        status["student_result"] = attach_saved_assessment(status["student_result"], OUTPUT_DIR)
 
     return jsonify(status)
 
@@ -243,6 +266,7 @@ def upload_video():
         "message": "upload success",
         "filename": filename,
         "run_id": run_id,
+        "analysis_id": process_status.get("analysis_id"),
     }
     response.update(get_correct_answer_fields(filename))
 
@@ -280,7 +304,7 @@ def get_student_result():
             if not data_matches_current_video(data):
                 continue
 
-            return jsonify(add_student_compat_fields(data))
+            return jsonify(add_student_compat_fields(attach_saved_assessment(data, OUTPUT_DIR)))
         except FileNotFoundError:
             continue
         except json.JSONDecodeError:

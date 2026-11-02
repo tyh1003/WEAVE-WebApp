@@ -23,6 +23,8 @@ class StudentBot:
         # 優先使用外部傳入的 epoch_dir，否則沿用設定檔內的預設值
         self.lora_dir = epoch_dir if epoch_dir else self.config.get("epoch_dir")
         
+        if self.lora_dir and not os.path.isabs(self.lora_dir):
+            self.lora_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(config_path))), self.lora_dir)
         if not self.lora_dir:
             raise ValueError("找不到有效的 LoRA 權重路徑！請檢查設定檔或手動傳入 epoch_dir。")
             
@@ -131,6 +133,22 @@ class StudentBot:
             max_length=self.max_length
         ).to(self.model.device)
 
+        self.last_trace = {
+            "model": self.base_model_name, "config": self.config,
+            "messages": chat_messages, "formatted_prompt": prompt_formatted,
+            "effective_input_ids": inputs["input_ids"].detach().cpu().tolist(),
+            "effective_attention_mask": inputs["attention_mask"].detach().cpu().tolist(),
+            "truncation": True, "max_length": self.max_length,
+            "generation": {"max_new_tokens": 256, "do_sample": False, "eos_token_id": self.tokenizer.eos_token_id, "pad_token_id": self.tokenizer.pad_token_id},
+            "raw_response": None,
+            "generated_ids": None,
+            "fields": {"Rc": Rc, "Rv": Rv, "K_int": K_int, "K_ext": K_ext},
+        }
+        if os.getenv("WEAVE_WORK_DIR"):
+            trace_path = os.path.join(os.environ["WEAVE_WORK_DIR"], "output", "student_trace.json")
+            with open(trace_path, "w", encoding="utf-8") as trace_file:
+                json.dump(self.last_trace, trace_file, ensure_ascii=False, indent=2)
+
         # ==================== Generate ====================
 
         with torch.no_grad():
@@ -159,6 +177,7 @@ class StudentBot:
         print(response_text)
         print("=" * 60)
 
+        self.last_trace.update(raw_response=response_text, generated_ids=generated_ids.detach().cpu().tolist())
         pred_label = -1
         reason = response_text
 

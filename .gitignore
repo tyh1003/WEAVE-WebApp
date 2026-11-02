@@ -1,44 +1,70 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment variables
+# Secrets and local credentials
 .env
 .env.*
 !.env.example
+**/credentials.json
+**/service-account*.json
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Frontend dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
 
-# Python cache
+# Python environments and caches
+.venv/
+venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Generated / runtime files
+# Local editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Runtime logs
+*.log
+logs/
+npm-debug.log*
+
+# Uploaded data, generated inference and private research state
 backend/preprocess_output/
 backend/uploads/
 backend/output/
-
-# Local database
-*.sqlite3
-
+backend/research_data/
+backend/tmp/
+backend/temp/
 data/
 pet-runs/
+answer.jsonl
+
+# Local model files (model loading requires separate setup)
+backend/model/
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.gguf
+*.onnx
+
+# Local database and SQLite sidecars
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Generated experiment results, keep scripts and explanatory docs
+experiments/**/outputs/
+experiments/**/results/
+experiments/**/cache/
+experiments/**/*.csv
+experiments/**/*.json

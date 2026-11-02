@@ -22,20 +22,17 @@
       </div>
       <section v-if="currentPage === 1" class="page-stack">
         <header class="page-header">
-          <div class="eyebrow">AI Fake News Detection</div>
-          <h1 class="project-title">
-            <span>{{ t("projectLine1") }}</span>
-            <span>{{ t("projectLine2") }}</span>
-          </h1>
+          <h1 class="brand-title">WEAVE</h1>
+          <p class="brand-subtitle">Video Misinformation Verification</p>
         </header>
 
         <section class="card upload-card">
           <div class="card-heading">
             <div>
               <h2>{{ t("uploadVideo") }}</h2>
-              <p>{{ translateStatus(uploadMessage) }}</p>
+              <p>{{ uploadInProgress ? t("uploading") : videoUrl ? ui("影片已就緒", "Video ready") : translateStatus(uploadMessage) }}</p>
             </div>
-            <span class="soft-badge">Upload</span>
+            
           </div>
 
           <input
@@ -44,10 +41,11 @@
             type="file"
             accept="video/*"
             class="visually-hidden"
+            :disabled="startSubmitting"
             @change="handleFileUpload"
           />
 
-          <label for="video-upload" class="button primary-button">
+          <label for="video-upload" class="button secondary-button">
             {{ t("chooseVideo") }}
           </label>
 
@@ -55,170 +53,176 @@
           <p v-if="uploadError" class="error-text">{{ uploadError }}</p>
 
           <div v-if="videoUrl" class="video-frame">
-            <video :src="videoUrl" controls></video>
+            <video :key="videoUrl" :src="videoUrl" controls @loadedmetadata="readVideoMetadata"></video>
           </div>
+          <p v-if="videoUrl" class="video-info">{{ videoInfoWithoutName }}</p>
 
         </section>
 
-        <section v-if="videoUrl" class="card vote-card">
-          <div class="card-heading">
-            <div>
-              <h2>{{ t("yourPrediction") }}</h2>
-              <p>
-                {{ t("currentVideo") }}：
-                {{ uploadedVideoId || t("noVideoName") }}
-              </p>
-            </div>
-            <span class="soft-badge">Vote</span>
+        <section v-if="videoUrl" class="card judgment-card">
+          <h2>{{ t('yourPrediction') }}</h2>
+          <div class="judgment-options" role="group" :aria-label="t('yourPrediction')">
+            <button v-for="option in voteOptions" :key="option.value" type="button"
+              class="judgment-choice" :aria-pressed="selectedVote === option.value"
+              :disabled="startSubmitting || !!experiment?.human_locked_at"
+              @click="selectVote(option.value)">{{ voteText(option.value) }}</button>
           </div>
-
-          <div class="vote-grid">
-            <button
-              v-for="option in voteOptions"
-              :key="option.value"
-              type="button"
-              class="vote-button"
-              :class="selectedVote === option.value ? `vote-active-${option.value}` : ''"
-              @click="selectVote(option.value)"
-
-            >
-              <strong>{{ voteText(option.value) }}</strong>
-              <span>{{ option.shortLabel }}</span>
-            </button>
-          </div>
-
-        <div v-if="selectedVote === 'false'" class="reason-block">
-          <p>{{ t("reason") }}</p>
-            <div class="reason-list">
-              <button
-
-                v-for="reason in reasonOptions"
-
-                :key="reason"
-
-                type="button"
-
-                class="reason-button"
-
-                :class="{ 'reason-active': selectedReason === reason }"
-
-                @click="selectedReason = reason"
-
-              >
-
-                {{ reasonText(reason) }}
-
-              </button>
-
-            </div>
-
-          </div>
-
-
-
-          <p v-if="voteError" class="error-text">{{ voteError }}</p>
-
-
-
-          <button
-
-            type="button"
-
-            class="button primary-button submit-button"
-
-            :disabled="!selectedVote || voteSubmitting"
-
-            @click="submitVote"
-
-          >
-
-            {{ voteSubmitting ? t("submitting") : t("submit") }}
-
-          </button>
-
         </section>
-
-
-
-        <section v-if="showVoteStats" class="card stats-card">
-
-          <div class="card-heading">
-
-            <div>
-
-              <h2>{{ t("voteStatistics") }}</h2>
-              <p>{{ t("totalVotes", { n: voteStats.total }) }}</p>
-
-            </div>
-
-            <span class="soft-badge">Statistics</span>
-
-          </div>
-
-
-
-          <div class="stats-list">
-
-            <div v-for="item in statisticsRows" :key="item.key" class="stats-row">
-
-              <div class="stats-label">
-
-                <span>{{ item.label }}</span>
-
-                <strong>{{ item.percent }}%</strong>
-
-              </div>
-
-              <div class="meter">
-
-                <span
-
-                  :class="`meter-fill meter-${item.key}`"
-
-                  :style="{ width: `${item.percent}%` }"
-
-                ></span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-
-          <button type="button" class="button secondary-button" @click="nextPage">
-
-            {{ t("viewAI") }}
-
-          </button>
-
-        </section>
-
+        <div class="start-action">
+          <p v-if="voteError" role="alert" class="error-text">{{ voteError }}</p>
+          <button type="button" class="button primary-button start-button"
+            :disabled="!selectedVote || !experimentSession || uploadInProgress || !!uploadError || startSubmitting || researchBusy"
+            @click="startVerification">{{ startSubmitting ? ui('啟動中…', 'Starting…') : ui('開始判斷', 'Start Verification') }}</button>
+        </div>
       </section>
 
 
 
-      <section v-else class="page-stack">
+      <section v-else class="page-stack research-workspace">
+        <header class="page-header compact"><h1 class="brand-title">WEAVE</h1><p class="brand-subtitle">Video Misinformation Verification</p></header>
+        <WorkspaceVersions :versions="versions" :selected="selectedVersion" :locale="locale" @select="selectVersion" />
+        <p v-if="mainActionError" role="alert" class="error-text">{{ mainActionError }}</p>
+          <div class="compact-pipeline" aria-label="Pipeline Status">
+            <p><strong>{{ ui("分析流程", "Pipeline Status") }}</strong> · {{ ui("目前／最新工作", "Current / latest job") }}: {{ pipelineJob ? `V${pipelineJob.version_number} · ${localizedJobStatus(pipelineJob.status)}` : translateStatus(processStatus) }}</p>
+            <ol><li v-for="stage in workspaceStages" :key="stage.name" :data-state="pipelineVisualState(stage)" :aria-current="stage.active ? 'step' : undefined"><strong>{{ stage.name }}</strong><span>{{ stage.status }}</span></li></ol>
+            <p v-if="pipelineFailureSummary" role="alert" class="error-text">{{ pipelineFailureSummary }}</p>
+          </div>
+        <section class="card workspace-result-row">
+          <h2>{{ ui("01 · 影片與結果", "01 · Video & Result") }}</h2>
+        <div class="workspace-video">
+          <video v-if="videoUrl" :key="videoUrl" ref="workspacePlayer" :src="videoUrl" controls preload="metadata" @loadedmetadata="readVideoMetadata" />
+          <p v-else>{{ ui('本頁尚無可播放的影片，請重新上傳。', 'No playable video is available; upload the video again.') }}</p>
+          <p class="video-info">{{ videoInfo }}</p>
+        </div>
+        <div class="result-card">
+          <p v-if="currentVersion">{{ ui('目前操作版本', 'Active experiment version') }} V{{ currentVersion.version_number }} · {{ currentVersion.experiment_type }} · {{ currentVersion.version_id }}<span v-if="researchBusy"> · {{ ui('新版本執行中，結果尚未切換', 'A new version is running; displayed results remain unchanged') }}</span></p>
+          <div class="result-grid">
 
-        <header class="page-header compact">
+            <div class="result-item">
+              <span>{{ t("humanPrediction") }}</span>
+              <strong :data-verdict="selectedVote">{{ voteText(selectedVote) }}</strong>
+            </div>
 
-          <div class="eyebrow">AI Reasoning Chain</div>
+            <div class="result-item">
+              <span>{{ t("aiPrediction") }}</span>
+              <strong :data-verdict="studentReady ? aiVote : null">
+                {{ studentReady ? voteText(aiVote) : ui('尚無結果', 'Not available') }}
+              </strong>
+            </div>
 
-            <h1>{{ t("analysisPipeline") }}</h1>
-            <p>{{ translateStatus(processStatus) }}</p>
+            <div class="result-item">
+              <span>{{ t("groundTruth") }}</span>
+              <strong :data-verdict="systemAnswer">{{ voteText(systemAnswer) }}</strong>
+            </div>
 
-        </header>
+            <div class="result-item winner-item">
+              <span>{{ t("comparison") }}</span>
+              <strong>{{ winnerText }}</strong>
+            </div>
+
+          </div>
 
 
 
-        <section class="flow-grid">
+
+            <div class="full-student-reasoning" v-if="studentResult?.reason">
+              <h3>{{ ui('完整判斷理由／翻譯', 'Full original reasoning / translation') }}</h3>
+              <p>{{ translatedContent.explanation || studentResult.reason }}</p>
+              <small v-if="!translatedContent.explanation">{{ translationLoading ? ui('翻譯中，暫顯示原文。', 'Translating; showing original temporarily.') : ui('翻譯不可用，顯示保存原文。', 'Translation unavailable; showing saved original.') }}</small>
+            </div>
+
+          <p v-if="currentVersion" role="status">{{ ui("所選版本狀態", "Selected version status") }}: {{ localizedJobStatus(currentVersion.status) }} · {{ currentVersion.stage || '—' }}</p>
+
+          <div class="button-row workspace-actions"><button type="button" class="button primary-button" @click="refreshOutputs">{{ t('refresh') }}</button><button type="button" class="button ghost-button" @click="resetGame">{{ t('restart') }}</button></div>
+        </div>
+        </section>
+        <div class="workspace-main-columns">
+          <section class="card verification-chain">
+            <h2>{{ ui("02 · 分析資料與修正", "02 · Verification Chain & Edit") }}</h2>
+            <p v-if="!hasChainData" class="chain-empty">{{ ui("目前沒有可編輯的分析資料。", "No editable analysis data is available.") }}</p>
+            <InputCorrection v-if="hasChainData" ref="correctionEditor" :version="currentVersion" :busy="researchBusy || correctionSubmitting" :locale="locale" :translations="translatedContent" @submit="submitCorrection" />
+            <ResearchData v-if="hasChainData" :key="`${activeAnalysisId}-${uploadedVideoId}`" :data="retrieveResult" :translations="translatedContent" :locale="locale" :field-keys="['K_int','K_ext']" />
+          </section>
+          <section class="card news-evidence">
+            <h2>{{ ui("03 · 新聞來源", "03 · News Evidence") }}</h2>
+            <WorkspaceNews :key="`${experimentSession?.experiment_id}-${selectedVersion || activeAnalysisId}`" :version="currentVersion" :result="studentResult" :retrieve="retrieveResult" :locale="locale" :experiment-id="experimentSession?.experiment_id" :request="researchRequest" :summary-enabled="experiment?.results_revealed === true" :submit="submitSourceGrounded" :busy="researchBusy || selectedNewsSubmitting" />
+          </section>
+        </div>
+        <details class="workspace-advanced">
+          <summary>{{ ui("進階研究", "Advanced Research") }}</summary>
+          <details class="research-category" data-category="evidence">
+            <summary>{{ ui("證據評估", "Evidence Assessment") }}</summary>
+          <GroundedExplanation v-if="currentVersion?.status === 'succeeded'" :key="currentVersion.version_id" :version-id="currentVersion.version_id" :request="researchRequest" />
+          <p v-if="currentVersion?.experiment_type === 'evidence_ablation' && currentVersion.ablation_mode !== 'source_level'">{{ ui('此版本已排除 K_ext 輸入通道；下方來源是父版本搜尋紀錄，未作為文章輸入傳給 Student。', 'K_ext was excluded. Sources below are parent research records, not article inputs sent to Student.') }}</p>
+          <EvidenceAssessmentControl v-if="currentVersion?.status === 'succeeded'" :key="`${experimentSession?.experiment_id}-${currentVersion.version_id}`" :version-id="currentVersion.version_id" :request="researchRequest" :locale="locale" @assessment="versionAssessment = $event" />
+          <EvidencePanel v-if="studentReady" :key="`${activeAnalysisId}-${uploadedVideoId}`" :result="studentResult" :retrieve="retrieveResult" :assessment="versionAssessment" :video-url="videoUrl" :locale="locale" @seek="seekWorkspace" />
+          <p v-else>{{ ui("尚無可評估的判斷結果。", "No judgment is available for assessment.") }}</p>
+          </details>
+          <details class="research-category" data-category="experiments">
+            <summary>{{ ui("研究實驗", "Research Experiments") }}</summary>
+          <p v-if="currentVersion?.status !== 'succeeded'">{{ ui('請選取已完成版本以進行研究實驗。', 'Select a completed version to run research experiments.') }}</p>
+          <template v-else><details class="experiment-tool"><summary>Evidence Ablation</summary><EvidenceAblation :request="researchRequest" :versions="versions" :version="currentVersion" :busy="researchBusy" :locale="locale" @submit="submitAblation" @select="selectVersion" /></details><details class="experiment-tool"><summary>Source-grounded Baseline</summary><SourceGroundedBaseline :version="currentVersion" :request="researchRequest" :busy="researchBusy" :locale="locale" @submit="submitSourceGrounded" /></details><details class="experiment-tool"><summary>Source-aware K_ext</summary><SourceAwareBaseline :version="currentVersion" :request="researchRequest" :busy="researchBusy" :locale="locale" @submit="submitSourceGrounded" /></details></template>
+            <details id="version-comparison"><summary>{{ ui("版本比較", "Version Comparison") }}</summary>
+
+          <VersionComparison :versions="versions" :selected="selectedVersion" :locale="locale" :human="experiment?.human_judgment" :ground-truth="experiment?.correct_answer" :busy="researchBusy" @retry="submitSourceGrounded" @select="selectVersion" />
+            </details>
+          </details>
+          <details class="research-category" data-category="data">
+            <summary>{{ ui("研究資料", "Research Data") }}</summary>
+            <RuntimeProfile :version-id="currentVersion?.version_id" :request="researchRequest" :locale="locale" />
+          <details class="research-records" :key="`technical-${activeAnalysisId}-${uploadedVideoId}`">
+            <summary>{{ ui('技術細節：Prompt、保存輸出與批次紀錄', 'Technical details: prompts, saved outputs and batch records') }}</summary>
+            <p class="research-note">{{ ui('以下 Prompt 為展示用文字，未驗證與模型實際送入內容逐字一致。保存結果為 API 回傳資料，不等於完整原始生成回應。', 'Prompts below are display text, not verified verbatim model inputs. Saved API results are not the complete raw generation response.') }}</p>
+            <details class="analysis-details">
+              <summary>{{ ui("Retrieve 保存資料", "Saved Retrieve data") }}</summary>
+            <div class="field-list">
+
+              <InfoBlock :label="locale === 'zh' ? '待查核主張（Rc）' : 'Claims to check (Rc)'" :value="translatedRetrieveDisplayFields.Rc" />
+              <InfoBlock :label="locale === 'zh' ? '影片描述（Rv，模型整理）' : 'Video description (Rv, model refinement)'" :value="translatedRetrieveDisplayFields.Rv" />
+              <InfoBlock :label="locale === 'zh' ? '模型背景知識（K_int，非外部證據）' : 'Model background (K_int, not external evidence)'" :value="translatedRetrieveDisplayFields.K_int" />
+              <InfoBlock :label="locale === 'zh' ? '搜尋資訊的模型整理（K_ext，非來源原文）' : 'Model synthesis of search (K_ext, not source text)'" :value="translatedRetrieveDisplayFields.K_ext" />
+            </div>
+
+
+
+            </details>
+            <details class="analysis-details">
+              <summary>{{ ui("Student 展示用 Prompt", "Student display prompts") }}</summary>
+            <div class="field-list">
+
+              <InfoBlock label="system prompt" :value="studentPromptDisplayFields.system_prompt" />
+
+              <InfoBlock label="user prompt" :value="studentPromptDisplayFields.user_prompt" />
+
+              <InfoBlock :label="locale === 'zh' ? '待查核主張（Rc）' : 'Claims to check (Rc)'" :value="studentPromptDisplayFields.Rc" />
+
+              <InfoBlock :label="locale === 'zh' ? '影片描述（Rv，模型整理）' : 'Video description (Rv, model refinement)'" :value="studentPromptDisplayFields.Rv" />
+
+              <InfoBlock :label="locale === 'zh' ? '模型背景知識（K_int，非外部證據）' : 'Model background (K_int, not external evidence)'" :value="studentPromptDisplayFields.K_int" />
+
+              <InfoBlock :label="locale === 'zh' ? '搜尋資訊的模型整理（K_ext，非來源原文）' : 'Model synthesis of search (K_ext, not source text)'" :value="studentPromptDisplayFields.K_ext" />
+
+            </div>
+
+            </details>
+            <details><summary>{{ ui('保存的分析結果與批次資訊', 'Saved analysis results and batch information') }}</summary><pre>{{ JSON.stringify({ analysis_id: activeAnalysisId, retrieve: retrieveResult, result: studentResult, student_prompt: statusStudentPrompt }, null, 2) }}</pre></details>
+          </details>
+          </details>
+          <details class="research-category pipeline-diagnostics" data-category="pipeline">
+            <summary>{{ ui("流程診斷", "Pipeline Diagnostics") }}</summary>
+            <p>{{ ui('所選版本', 'Selected version') }}: {{ currentVersion ? `V${currentVersion.version_number} · ${localizedJobStatus(currentVersion.status)}` : '—' }}</p>
+            <p>{{ ui('目前／最新工作', 'Current / latest job') }}: {{ pipelineJob ? `V${pipelineJob.version_number} · ${localizedJobStatus(pipelineJob.status)}` : '—' }}<span v-if="pipelineJob?.failed_stage"> · {{ pipelineJob.failed_stage }}</span></p>
+            <details :key="`pipeline-details-${activeAnalysisId}-${uploadedVideoId}`"><summary>{{ ui('查看執行詳情', 'View Execution Details') }}</summary>
+            <p v-if="pipelineError" class="error-text">{{ pipelineError }}</p>
+            <p v-if="currentVersion?.error && currentVersion.error !== pipelineError" class="error-text">{{ currentVersion.error }}</p>
+            <pre>{{ JSON.stringify({selected_version: currentVersion, latest_job: pipelineJob}, null, 2) }}</pre>
+            <p>{{ pipelineStepLabel(pipelineStep) }}</p>
+        <section class="flow-grid" :key="`pipeline-${activeAnalysisId}-${uploadedVideoId}`">
 
           <article class="card flow-card preprocess-card">
 
             <div class="flow-title">
 
-              <span class="step-index">1</span>
 
               <div>
 
@@ -260,11 +264,10 @@
 
             <div class="flow-title">
 
-              <span class="step-index">2</span>
 
               <div>
 
-                <h2>Retrieve</h2>
+                <h2>{{ locale === "zh" ? "主張整理與搜尋" : "Claims and search" }}</h2>
 
                 <p>{{ translateStatus(retrieveStatusText) }}</p>
 
@@ -274,48 +277,6 @@
 
 
 
-            <div class="field-list">
-
-              <InfoBlock label="Rc" :value="translatedRetrieveDisplayFields.Rc" />
-              <InfoBlock label="Rv" :value="translatedRetrieveDisplayFields.Rv" />
-              <InfoBlock label="K_int" :value="translatedRetrieveDisplayFields.K_int" />
-              <InfoBlock label="K_ext" :value="translatedRetrieveDisplayFields.K_ext" />
-            </div>
-
-
-
-            <div class="link-section">
-
-              <span class="info-label">{{ t("externalSources") }}</span>
-              <div v-if="retrieveLinks.length" class="source-link-grid">
-
-                <a
-
-                  v-for="(link, index) in retrieveLinks"
-
-                  :key="`${link}-${index}`"
-
-                  class="source-link-card"
-
-                  :href="link"
-
-                  target="_blank"
-
-                  rel="noreferrer"
-
-                >
-
-                  <strong>{{ t("source") }} {{ index + 1 }}</strong>
-
-                  <span>{{ link }}</span>
-
-                </a>
-
-              </div>
-
-              <p v-else class="empty-text">{{ translateStatus(retrieveEmptyText) }}</p>
-
-            </div>
 
           </article>
 
@@ -325,7 +286,6 @@
 
             <div class="flow-title">
 
-              <span class="step-index">3</span>
 
               <div>
 
@@ -338,156 +298,35 @@
 
 
 
-            <div class="field-list">
-
-              <InfoBlock label="system prompt" :value="studentPromptDisplayFields.system_prompt" />
-
-              <InfoBlock label="user prompt" :value="studentPromptDisplayFields.user_prompt" />
-
-              <InfoBlock label="Rc" :value="studentPromptDisplayFields.Rc" />
-
-              <InfoBlock label="Rv" :value="studentPromptDisplayFields.Rv" />
-
-              <InfoBlock label="K_int" :value="studentPromptDisplayFields.K_int" />
-
-              <InfoBlock label="K_ext" :value="studentPromptDisplayFields.K_ext" />
-
-            </div>
 
           </article>
 
         </section>
-
-
-
-        <section class="card result-card">
-
-          <div class="card-heading">
-
-            <div>
-
-              <h2>{{ t("finalResult") }}</h2>
-              <p>{{ translateStatus(studentStatusText) }}</p>
-
-            </div>
-
-            <span class="soft-badge result-badge">Result</span>
-
-          </div>
-
-
-
-          <div class="result-grid">
-
-            <div class="result-item">
-              <span>{{ t("humanPrediction") }}</span>
-              <strong>{{ voteText(selectedVote) }}</strong>
-            </div>
-
-            <div class="result-item">
-              <span>{{ t("aiPrediction") }}</span>
-              <strong>
-                {{ studentReady ? voteText(aiVote) : translateStatus(studentStatusText) }}
-              </strong>
-            </div>
-
-            <div class="result-item">
-              <span>{{ t("groundTruth") }}</span>
-              <strong>{{ voteText(systemAnswer) }}</strong>
-            </div>
-
-            <div class="result-item winner-item">
-              <span>{{ t("comparison") }}</span>
-              <strong>{{ winnerText }}</strong>
-            </div>
-
-          </div>
-
-
-
-        <div class="reason-result">
-          <h3>{{ t("aiExplanation") }}</h3>
-          <p>
-            {{
-              locale === "en"
-                ? (translatedContent.explanation ||
-                  studentResult?.reason ||
-                  translateStatus(studentResultEmptyText))
-                : (studentResult?.reason ||
-                  translateStatus(studentResultEmptyText))
-            }}
-          </p>
-        </div>
-
-
-
-          <div class="link-section result-source-section">
-
-            <span class="info-label">{{ t("externalSources") }}</span>
-
-            <div v-if="retrieveLinks.length" class="source-link-grid">
-
-              <a
-
-                v-for="(link, index) in retrieveLinks"
-
-                :key="`result-${link}-${index}`"
-
-                class="source-link-card"
-
-                :href="link"
-
-                target="_blank"
-
-                rel="noreferrer"
-
-              >
-
-                <strong>{{ t("source") }} {{ index + 1 }}</strong>
-
-                <span>{{ link }}</span>
-
-              </a>
-
-            </div>
-
-            <p v-else class="empty-text">{{ translateStatus(retrieveEmptyText) }}</p>
-
-          </div>
-
-
-
-          <div class="button-row">
-
-            <button type="button" class="button secondary-button" @click="refreshOutputs">
-
-              {{ t("refresh") }}
-
-            </button>
-
-            <button type="button" class="button ghost-button" @click="resetGame">
-
-              {{ t("restart") }}
-
-            </button>
-
-          </div>
-
-        </section>
-
+          </details>
+          </details>
+        </details>
       </section>
-
     </main>
-
+    <footer class="project-footer"><a href="https://github.com/tyh1003/WEAVE-WebApp" target="_blank" rel="noopener noreferrer">WEAVE · GitHub</a></footer>
   </div>
-
 </template>
 
-
-
 <script setup>
+import WorkspaceVersions from './components/WorkspaceVersions.vue'
+import WorkspaceNews from './components/WorkspaceNews.vue'
+import RuntimeProfile from './components/RuntimeProfile.vue'
+import EvidenceAblation from './components/EvidenceAblation.vue'
+import SourceGroundedBaseline from './components/SourceGroundedBaseline.vue'
+import GroundedExplanation from './components/GroundedExplanation.vue'
+import SourceAwareBaseline from './components/SourceAwareBaseline.vue'
+import EvidenceAssessmentControl from './components/EvidenceAssessmentControl.vue'
+import InputCorrection from './components/InputCorrection.vue'
+import VersionComparison from './components/VersionComparison.vue'
+import EvidencePanel from './components/EvidencePanel.vue'
+import ResearchData from './components/ResearchData.vue'
+import EvidenceText from './components/EvidenceText.vue'
 
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref } from "vue"
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 
 
 
@@ -502,7 +341,110 @@ const DONE_TEXT = "已完成"
 
 const NOT_FOUND_TEXT = "未查到"
 
-const locale = ref("en")
+const experimentSession = ref(null), experiment = ref(null), versions = ref([])
+const selectedVersion = ref(null), pendingVersion = ref(null), versionError = ref('')
+const versionAssessment = ref(null)
+let researchGeneration = 0
+const researchBusy = computed(() => versions.value.some(v => ['pending','running'].includes(v.status)))
+const currentVersion = computed(() => versions.value.find(v => v.version_id === selectedVersion.value))
+async function researchRequest(suffix, options = {}) {
+  const session = experimentSession.value
+  if (!session) throw new Error('No experiment')
+  return fetchJson(`/experiments/${session.experiment_id}${suffix}`, { ...options, headers: { 'Content-Type':'application/json', Authorization:`Bearer ${session.access_token}`, ...options.headers } })
+}
+async function restoreExperiment() {
+  try {
+    const saved = window.sessionStorage?.getItem('weave-experiment')
+    if (!saved) return
+    experimentSession.value = JSON.parse(saved)
+    const scope = experimentSession.value.experiment_id
+    const exp = await researchRequest('')
+    if (scope !== experimentSession.value?.experiment_id) return
+    experiment.value = exp; uploadedVideoId.value = exp.safe_display_filename; videoBytes.value = exp.video_bytes
+    const response = await fetch(`${API_BASE}/experiments/${scope}/video`, { headers:{Authorization:`Bearer ${experimentSession.value.access_token}`} })
+    if (!response.ok) throw new Error('Video unavailable')
+    const blob = await response.blob()
+    if (scope !== experimentSession.value?.experiment_id) return
+    videoUrl.value = URL.createObjectURL(blob)
+    await refreshOutputs()
+    if (versions.value.length) currentPage.value = 2
+  } catch (error) { versionError.value = error.message }
+}
+const correctionEditor = ref(null)
+const correctionSubmitting = ref(false)
+function selectVersion(id) {
+  const v = versions.value.find(v => v.version_id === id)
+  if (!v) return
+  if (id !== selectedVersion.value && correctionEditor.value?.canLeave() === false) return
+  researchGeneration++
+  versionAssessment.value = null
+  selectedVersion.value = id; activeAnalysisId.value = id
+  if (experimentSession.value) {
+    experimentSession.value.selected_version_id = id
+    window.sessionStorage?.setItem('weave-experiment', JSON.stringify(experimentSession.value))
+  }
+  translatedContent.value = {}; lastTranslationKey.value = ''
+  retrieveResult.value = v.output_snapshot?.retrieve || (v.input_snapshot?.student_fields ? { ...v.input_snapshot.student_fields, analysis_id: id } : null)
+  studentResult.value = v.output_snapshot?.student ? normalizeStudentResult(v.output_snapshot.student) : null
+  statusStudentPrompt.value = null
+}
+async function submitCorrection(payload) {
+  if (researchBusy.value || correctionSubmitting.value) return
+  correctionSubmitting.value = true
+  const scope = experimentSession.value?.experiment_id
+  try {
+    versionError.value = ''
+    const v = await researchRequest('/versions', { method:'POST', body:JSON.stringify({experiment_type:'input_correction', ...payload}) })
+    if (scope !== experimentSession.value?.experiment_id) return
+    correctionEditor.value?.submitted(payload)
+    pendingVersion.value = v.version_id
+    await refreshOutputs()
+  } catch (error) { if (scope === experimentSession.value?.experiment_id) versionError.value = error.message }
+  finally { correctionSubmitting.value=false;correctionEditor.value?.finishSubmission() }
+}
+async function submitAblation(payload) {
+  if (researchBusy.value) return
+  const scope = experimentSession.value?.experiment_id
+  try {
+    versionError.value = ''
+    const v = await researchRequest('/versions', {method:'POST', body:JSON.stringify({experiment_type:'evidence_ablation', ...payload})})
+    if (scope !== experimentSession.value?.experiment_id) return
+    pendingVersion.value = v.version_id
+    await refreshOutputs()
+  } catch (error) { if (scope === experimentSession.value?.experiment_id) versionError.value = error.message }
+}
+const selectedNewsSubmitting = ref(false)
+async function submitSourceGrounded(payload) {
+  const selectedNews = payload.experiment_type === 'selected_news'
+  if (researchBusy.value || selectedNewsSubmitting.value) { if(selectedNews) throw new Error('A research version is already running'); return }
+  if(selectedNews) selectedNewsSubmitting.value=true
+  const scope=experimentSession.value?.experiment_id
+  try {
+    versionError.value=''
+    const v=await researchRequest('/versions',{method:'POST',body:JSON.stringify({experiment_type:'source_grounded_baseline',...payload})})
+    if(scope!==experimentSession.value?.experiment_id)return
+    pendingVersion.value=v.version_id
+    await refreshOutputs()
+    return v
+  } catch(error){if(scope===experimentSession.value?.experiment_id && !selectedNews)versionError.value=error.message;if(selectedNews)throw error}
+  finally{if(selectedNews)selectedNewsSubmitting.value=false}
+}
+const aggregateSubmitting = ref(false)
+async function submitAggregateVote() {
+  if (!experiment.value?.human_locked_at || aggregateSubmitting.value || experimentSession.value?.aggregate_submitted) return
+  const scope = experimentSession.value?.experiment_id
+  aggregateSubmitting.value = true
+  try {
+    const data = await fetchJson('/vote', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ video_id:experiment.value.video_asset_id, vote:experiment.value.human_judgment }) })
+    if (scope !== experimentSession.value?.experiment_id) return
+    updateVoteStats(data.statistics)
+    experimentSession.value.aggregate_submitted = true
+    window.sessionStorage?.setItem('weave-experiment', JSON.stringify(experimentSession.value))
+  } catch (error) { if (scope === experimentSession.value?.experiment_id) voteError.value = error.message }
+  finally { aggregateSubmitting.value = false }
+}
+
+const locale = ref("zh")
 
 // ============================================================
 // Language
@@ -515,9 +457,7 @@ function toggleLocale() {
 async function setLocale(lang) {
   locale.value = lang
 
-  if (lang === "en") {
-    await translateDynamicContent()
-  }
+  await translateDynamicContent()
 }
 
 
@@ -941,11 +881,88 @@ const preprocessDisplaySteps = computed(() => pipelineSteps.slice(0, 3))
 
 
 
+const ui = (zh, en) => locale.value === 'en' ? en : zh
+const workspacePlayer = ref(null)
+const videoBytes = ref(null)
+const videoDuration = ref(null)
+const pipelineError = ref(null)
+const failedPipelineStage = ref(null)
+const videoInfo = computed(() => [uploadedVideoId.value,
+  videoBytes.value !== null ? `${(videoBytes.value / 1024 / 1024).toFixed(2)} MB` : null,
+  videoDuration.value !== null ? `${videoDuration.value.toFixed(1)} s` : null].filter(Boolean).join(' · '))
+function readVideoMetadata(event) {
+  const value = event.target.duration
+  videoDuration.value = Number.isFinite(value) && value >= 0 ? value : null
+}
+function seekWorkspace(time) {
+  const player = workspacePlayer.value
+  if (typeof time === 'number' && Number.isFinite(time) && time >= 0 && player && Number.isFinite(player.duration) && time <= player.duration) player.currentTime = time
+}
+const pipelineJob = computed(() => versions.value.find(v => ['pending','running'].includes(v.status)) || versions.value.at(-1))
+const workspaceStages = computed(() => {
+  const job = pipelineJob.value
+  const stage = job ? (job.status === 'failed' ? 'error' : job.stage) : currentStage.value
+  const hasRetrieve = job ? !!job.output_snapshot?.retrieve : retrieveReady.value
+  const hasStudent = job ? !!job.output_snapshot?.student : studentReady.value
+  const failedStage = job ? job.failed_stage : failedPipelineStage.value
+  const waiting = ui('等待／未知', 'Waiting / unknown')
+  const done = ui('完成', 'Completed')
+  const running = ui('執行中', 'Running')
+  if (stage === 'error' && failedStage) {
+    const names = ['Preprocess', 'Retrieve', 'Student', 'Result']
+    const index = { preprocess:0, preprocess_reused:0, retrieve:1, student:2 }[failedStage]
+    if (index === undefined) return names.map((name,i)=>({name,status:i===3?ui('失敗','Failed'):waiting}))
+    return names.map((name, i) => ({ name, status: i === 3 || i === index ? ui('失敗', 'Failed') : i < index ? done : ui('未執行', 'Not Run') }))
+  }
+  return [
+    { name: 'Preprocess', active: stage === 'preprocess', status: stage === 'preprocess' ? running : ['retrieve', 'student', 'done'].includes(stage) ? done : waiting },
+    { name: 'Retrieve', active: stage === 'retrieve', status: stage === 'retrieve' ? running : ['student', 'done'].includes(stage) && hasRetrieve ? done : waiting },
+    { name: 'Student', active: stage === 'student', status: stage === 'student' ? running : stage === 'done' && hasStudent ? done : waiting },
+    { name: 'Result', status: stage === 'done' && hasStudent ? done : stage === 'error' ? ui('失敗', 'Failed') : waiting },
+  ]
+})
+
+const mainActionError = computed(() => versions.value.some(v => v.error && v.error === versionError.value) ? '' : versionError.value)
+const hasChainData = computed(() => ['Rc','Rv','K_int','K_ext'].some(key => typeof retrieveResult.value?.[key] === 'string' && retrieveResult.value[key].trim()))
+const pipelineFailureSummary = computed(() => {
+  const job = pipelineJob.value
+  if (job?.status !== 'failed' && !pipelineError.value) return ''
+  const stage = ({preprocess:'Preprocess',preprocess_reused:'Preprocess',retrieve:'Retrieve',student:'Student'})[job?.failed_stage || failedPipelineStage.value] || ui('分析','Analysis')
+  const suffix = job?.output_snapshot?.student ? '' : ui('，尚未產生此版本的 AI 判斷。', '. No AI result is available for this version.')
+  return `${job ? `V${job.version_number} · ` : ''}${stage}${ui('失敗',' failed')}${suffix}`
+})
+function localizedJobStatus(status) {
+  return ({pending:ui('等待','Waiting'),running:ui('執行中','Running'),succeeded:ui('完成','Completed'),failed:ui('失敗','Failed')})[status] || status || ui('未知','Unknown')
+}
+function pipelineVisualState(stage) {
+  if (stage.active) return 'running'
+  if (stage.status === ui('完成','Completed')) return 'completed'
+  if (stage.status === ui('失敗','Failed')) return 'failed'
+  return 'waiting'
+}
+const videoInfoWithoutName = computed(() => [
+  videoBytes.value !== null ? `${(videoBytes.value / 1024 / 1024).toFixed(2)} MB` : null,
+  videoDuration.value !== null ? `${videoDuration.value.toFixed(1)} s` : null].filter(Boolean).join(' · '))
+const startSubmitting = ref(false)
+async function startVerification() {
+  if (startSubmitting.value || !selectedVote.value || !experimentSession.value || uploadInProgress.value || uploadError.value || researchBusy.value) return
+  startSubmitting.value = true
+  voteError.value = ''
+  const scope = experimentSession.value.experiment_id
+  try {
+    if (!experiment.value?.human_locked_at) {
+      selectedReason.value = ''
+      await submitVote()
+    }
+    if (scope === experimentSession.value?.experiment_id && experiment.value?.human_locked_at && !voteError.value) await nextPage()
+  } finally { startSubmitting.value = false }
+}
 const currentPage = ref(1)
 
 const videoUrl = ref(null)
 
 const uploadedVideoId = ref("")
+const activeAnalysisId = ref(null)
 
 const selectedVote = ref(null)
 
@@ -1309,6 +1326,7 @@ const winnerText = computed(() => {
 
 onMounted(async () => {
 
+  await restoreExperiment()
   await refreshOutputs()
 
 
@@ -1377,91 +1395,86 @@ async function fetchJson(path, options = {}) {
 
 }
 
+const translationCache = new Map()
+const translationPending = new Map()
+const translationFailures = new Map()
+let translationSequence = 0
 async function translateDynamicContent() {
-  // 中文介面不需要翻譯
-  if (locale.value !== "en") return
-
-  const texts = {
-    Rc: retrieveResult.value?.Rc || "",
-    Rv: retrieveResult.value?.Rv || "",
-    K_int: retrieveResult.value?.K_int || "",
-    K_ext: retrieveResult.value?.K_ext || "",
-    explanation: studentResult.value?.reason || "",
-  }
-
-  // 避免還沒有資料時呼叫 API
-  const hasContent = Object.values(texts).some(
-    value => typeof value === "string" && value.trim()
-  )
-
-  if (!hasContent) return
-
-  // 建立目前內容的 fingerprint
-  // 相同內容就不重複呼叫翻譯 API
-  const currentKey = JSON.stringify(texts)
-
-  if (currentKey === lastTranslationKey.value) {
-    return
-  }
-
-  translationLoading.value = true
-
+  const seq = ++translationSequence
+  const batch = activeAnalysisId.value, upload = uploadRequestSeq, target = locale.value
+  const texts = target === 'en' ? {
+    Rc: retrieveResult.value?.Rc || '', Rv: retrieveResult.value?.Rv || '',
+    K_int: retrieveResult.value?.K_int || '', K_ext: retrieveResult.value?.K_ext || '',
+    explanation: studentResult.value?.reason || '',
+  } : {explanation: studentResult.value?.reason || ''}
+  const key = JSON.stringify([target, texts])
+  if (!Object.values(texts).some(v => typeof v === 'string' && v.trim())) { translatedContent.value={}; return }
+  const current = () => seq === translationSequence && batch === activeAnalysisId.value && upload === uploadRequestSeq && target === locale.value
+  if (lastTranslationKey.value !== key) translatedContent.value = {}
+  if (translationCache.has(key)) { translatedContent.value=translationCache.get(key);lastTranslationKey.value=key;translationLoading.value=false;return }
+  if (Date.now()-(translationFailures.get(key)||0)<60000) {translationLoading.value=false;return}
+  translationLoading.value=true
   try {
-    const response = await fetch(`${API_BASE}/translate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        texts,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Translation failed: ${response.status}`)
+    if (!translationPending.has(key)) {
+      const request = fetch(`${API_BASE}/translate`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texts,target_language:target})})
+        .then(async response => {
+          if (!response.ok) throw new Error('Translation unavailable')
+          const data=await response.json()
+          if (!data.success || !data.translations || Object.keys(texts).some(k=>typeof data.translations[k]!=='string' || (texts[k].trim() && !data.translations[k].trim()))) throw new Error('Translation unavailable')
+          translationCache.set(key,data.translations)
+          if (translationCache.size>32) translationCache.delete(translationCache.keys().next().value)
+          return data.translations
+        }).finally(()=>translationPending.delete(key))
+      translationPending.set(key,request)
     }
-
-    const data = await response.json()
-
-    if (!data.success) {
-      throw new Error(data.error || "Translation failed")
-    }
-
-    translatedContent.value = {
-      ...translatedContent.value,
-      ...data.translations,
-    }
-
-    // 只有成功才記錄 cache key
-    lastTranslationKey.value = currentKey
-  } catch (error) {
-    console.error("Translation error:", error)
-  } finally {
-    translationLoading.value = false
-  }
+    const translated=await translationPending.get(key)
+    if(current()){translatedContent.value=translated;lastTranslationKey.value=key}
+  } catch { translationFailures.set(key,Date.now()) /* Saved original is the only fallback. */ }
+  finally { if(current())translationLoading.value=false }
 }
+watch([locale, activeAnalysisId, ()=>studentResult.value?.reason], ()=>translateDynamicContent())
 
 async function refreshOutputs() {
-  const status = await fetchStatus()
-
-  if (!statusBelongsToCurrentVideo(status) || uploadInProgress.value) {
-    return
-  }
-
-  const tasks = []
-
-  if (shouldFetchRetrieveResult()) tasks.push(fetchRetrieveResult())
-  if (shouldFetchStudentResult()) tasks.push(fetchStudentResult())
-
-  if (tasks.length) {
-    await Promise.allSettled(tasks)
-  }
-
-  if (locale.value === "en") {
-    await translateDynamicContent()
-  }
+  if (!experimentSession.value || uploadInProgress.value) return
+  const scope = experimentSession.value.experiment_id
+  const generation = researchGeneration
+  try {
+    const [exp, history] = await Promise.all([researchRequest(''), researchRequest('/versions')])
+    if (experimentSession.value?.experiment_id !== scope || generation !== researchGeneration) return
+    experiment.value = exp
+    selectedVote.value = exp.human_judgment || selectedVote.value
+    selectedReason.value = exp.human_reason || selectedReason.value
+    showVoteStats.value = !!exp.human_locked_at
+    applyCorrectAnswerFields(exp)
+    versions.value = history.versions
+    const pending = versions.value.find(v => v.version_id === pendingVersion.value)
+    if (pending?.status === 'succeeded') {
+      selectVersion(pending.version_id)
+      pendingVersion.value = null
+      window.setTimeout(() => { const target=globalThis.document?.getElementById('version-comparison'); let panel=target?.closest?.('details'); while(panel){panel.open=true;panel=panel.parentElement?.closest?.('details')}  target?.scrollIntoView?.({ behavior: 'smooth' }) }, 0)
+    } else if (pending?.status === 'failed') {
+      versionError.value = pending.error
+      pendingVersion.value = null
+      const baseline = versions.value.find(v => v.version_number === 1 && v.status === 'succeeded')
+      if (baseline) selectVersion(baseline.version_id)
+    }
+    if (!selectedVersion.value) {
+      const first = versions.value.find(v => v.version_id === experimentSession.value?.selected_version_id && v.status === 'succeeded') || versions.value.filter(v => v.status === 'succeeded').at(-1)
+      if (first) selectVersion(first.version_id)
+    }
+    const running = versions.value.find(v => ['pending', 'running'].includes(v.status))
+    if (running && !pendingVersion.value) pendingVersion.value = running.version_id
+    const viewed = running || versions.value.at(-1)
+    if (viewed) {
+      processStatus.value = viewed.status
+      currentStage.value = viewed.stage === 'student' ? 'student' : viewed.stage === 'done' ? 'done' : viewed.stage === 'retrieve' ? 'retrieve' : viewed.stage === 'error' ? 'error' : viewed.stage === 'queued' ? 'uploaded' : 'preprocess'
+      pipelineStep.value = viewed.stage
+      pipelineError.value = viewed.error
+      failedPipelineStage.value = viewed.failed_stage || null
+    }
+    if (studentResult.value) await translateDynamicContent()
+  } catch (error) { if (experimentSession.value?.experiment_id === scope && generation === researchGeneration) versionError.value = error.message }
 }
-
 
 
 async function fetchStatus() {
@@ -1483,6 +1496,7 @@ async function fetchStatus() {
     pipelineStep.value = data.pipeline_step || "尚未開始"
 
     currentStage.value = data.current_stage || "idle"
+    pipelineError.value = data.error || null
 
 
 
@@ -1623,118 +1637,32 @@ async function fetchVoteStatistics(videoId = uploadedVideoId.value) {
 
 
 async function handleFileUpload(event) {
-
   const file = event.target.files?.[0]
-
   if (!file) return
-
-
-
-  event.target.value = ""
-
-  cancelActiveUpload()
-
-  const requestSeq = ++uploadRequestSeq
-
-  uploadAbortController = new AbortController()
-
+  event.target.value = ''
+  resetGame()
+  const seq = ++uploadRequestSeq
   uploadInProgress.value = true
-
-
-
-  revokeVideoUrl()
-
-  resetAnalysisState()
-
-  selectedVote.value = null
-
-  selectedReason.value = ""
-
-
-
+  uploadAbortController = new AbortController()
   videoUrl.value = URL.createObjectURL(file)
-
-  uploadedVideoId.value = file.name
-
-  resetCorrectAnswer()
-
-  uploadMessage.value = "上傳中..."
-
-  uploadError.value = ""
-
-
-
-  await fetchVoteStatistics(file.name)
-
-  if (requestSeq !== uploadRequestSeq) return
-
-
-
-  const formData = new FormData()
-
-  formData.append("video", file)
-
-
-
+  videoBytes.value = file.size
+  uploadedVideoId.value = 'Video'
+  const form = new FormData(); form.append('video', file)
   try {
-
-    const data = await fetchJson("/upload", {
-
-      method: "POST",
-
-      body: formData,
-
-      signal: uploadAbortController.signal,
-
-    })
-
-
-
-    if (requestSeq !== uploadRequestSeq) return
-
-
-
-    uploadedVideoId.value = data.filename || file.name
-
-    applyCorrectAnswerFields(data)
-
-    await fetchVoteStatistics(uploadedVideoId.value)
-
-    uploadMessage.value = "影片已上傳，分析中"
-
-  } catch (error) {
-
-    if (requestSeq !== uploadRequestSeq || error?.name === "AbortError") return
-
-
-
-    uploadError.value =
-
-      error.message === "Failed to fetch"
-
-        ? "無法連接後端，請確認 Flask backend 已啟動"
-
-        : error.message || "上傳失敗"
-
-    uploadMessage.value = "上傳失敗"
-
-  } finally {
-
-    if (requestSeq === uploadRequestSeq) {
-
-      uploadAbortController = null
-
-      uploadInProgress.value = false
-
-    }
-
-  }
-
+    const data = await fetchJson('/experiments', { method:'POST', body:form, signal:uploadAbortController.signal })
+    if (seq !== uploadRequestSeq) return
+    experimentSession.value = { experiment_id:data.experiment.experiment_id, access_token:data.access_token }
+    window.sessionStorage?.setItem('weave-experiment', JSON.stringify(experimentSession.value))
+    experiment.value = data.experiment
+    uploadedVideoId.value = data.experiment.safe_display_filename
+    uploadMessage.value = '影片已上傳，尚未啟動分析'
+  } catch (error) { if (seq === uploadRequestSeq) uploadError.value = error.message }
+  finally { if (seq === uploadRequestSeq) { uploadInProgress.value = false; uploadAbortController = null } }
 }
 
 
-
 function selectVote(vote) {
+  if (experiment.value?.human_locked_at) return
 
   selectedVote.value = vote
 
@@ -1753,73 +1681,19 @@ function selectVote(vote) {
 
 
 async function submitVote() {
-
-  if (!selectedVote.value) {
-
-    voteError.value = "請先選擇判斷結果"
-
-    return
-
-  }
-
-
-
-  if (!uploadedVideoId.value) {
-
-    voteError.value = "尚未取得影片 ID"
-
-    return
-
-  }
-
-
-
-  voteSubmitting.value = true
-
-  voteError.value = ""
-
-
-
+  if (!selectedVote.value || !experimentSession.value || voteSubmitting.value) return
+  voteSubmitting.value = true; voteError.value = ''
+  const scope = experimentSession.value.experiment_id
   try {
-
-    const data = await fetchJson("/vote", {
-
-      method: "POST",
-
-      headers: {
-
-        "Content-Type": "application/json",
-
-      },
-
-      body: JSON.stringify({
-
-        video_id: uploadedVideoId.value,
-
-        vote: selectedVote.value,
-
-      }),
-
-    })
-
-
-
-    updateVoteStats(data.statistics)
-
+    const saved = await researchRequest('/human-judgment', { method:'POST', body:JSON.stringify({vote:selectedVote.value, reason:selectedReason.value}) })
+    if (experimentSession.value?.experiment_id !== scope) return
+    experiment.value = saved
+    selectedVote.value = saved.human_judgment
+    selectedReason.value = saved.human_reason
     showVoteStats.value = true
-
-  } catch (error) {
-
-    voteError.value = error.message || "投票送出失敗"
-
-  } finally {
-
-    voteSubmitting.value = false
-
-  }
-
+  } catch (error) { if (experimentSession.value?.experiment_id === scope) voteError.value = error.message }
+  finally { voteSubmitting.value = false }
 }
-
 
 
 function updateVoteStats(data) {
@@ -1981,6 +1855,7 @@ function normalizeVideoId(value) {
 
 
 function statusBelongsToCurrentVideo(data) {
+  if (activeAnalysisId.value && data?.analysis_id !== activeAnalysisId.value) return false
 
   if (!data || !uploadedVideoId.value || !data.filename) return false
 
@@ -1993,6 +1868,8 @@ function statusBelongsToCurrentVideo(data) {
 
 
 function resultBelongsToCurrentVideo(data) {
+  if (uploadInProgress.value) return false
+  if (activeAnalysisId.value && data?.analysis_id && data.analysis_id !== activeAnalysisId.value) return false
 
   if (!data || !uploadedVideoId.value || !data.vid) return false
 
@@ -2026,17 +1903,25 @@ function cancelActiveUpload() {
 
 
 
-function nextPage() {
-
-  currentPage.value = 2
-
-  refreshOutputs()
-
+async function nextPage() {
+  const scope = experimentSession.value?.experiment_id
+  if (!experiment.value?.human_locked_at || researchBusy.value) return
+  try {
+    const v = await researchRequest('/versions', { method:'POST', body:JSON.stringify({experiment_type:'baseline'}) })
+    if (scope !== experimentSession.value?.experiment_id) return
+    pendingVersion.value = v.version_id
+    currentPage.value = 2
+    await refreshOutputs()
+  } catch (error) { voteError.value = error.message }
 }
 
 
-
 function resetGame() {
+  researchGeneration++
+  experimentSession.value = null; experiment.value = null
+  versions.value = []; selectedVersion.value = null; pendingVersion.value = null
+  versionError.value = ''
+  window.sessionStorage?.removeItem('weave-experiment')
 
   cancelActiveUpload()
 
@@ -2069,6 +1954,13 @@ function resetGame() {
 
 
 function resetAnalysisState() {
+  pipelineError.value = null
+  failedPipelineStage.value = null
+  videoBytes.value = null
+  videoDuration.value = null
+  activeAnalysisId.value = null
+  translatedContent.value = {}
+  lastTranslationKey.value = ""
 
   showVoteStats.value = false
 
@@ -2374,6 +2266,12 @@ function collectRetrieveLinks(data) {
 
 }
 
+function sourceLabel(link) {
+  const source = studentResult.value?.evidence?.sources?.find(item => item.source_url === link)
+  if (source?.source_title) return source.source_title
+  try { return new URL(link).hostname } catch { return t('source') }
+}
+
 
 
 function appendLinks(value, links) {
@@ -2471,6 +2369,12 @@ function formatValue(value) {
 
 
 <style scoped>
+.full-student-reasoning p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:1.08rem;line-height:1.8}.project-footer{text-align:center;padding:18px;font-size:.85rem}.project-footer a{color:#655679}.research-category{line-height:1.6}.research-category button{margin:4px;max-width:100%}
+
+.analysis-details summary, .reason-result summary, .result-source-section summary { cursor: pointer; color: #4c3a72; font-weight: 800; overflow-wrap: anywhere; }
+.analysis-details[open] summary { margin-bottom: 12px; }
+summary:focus-visible { outline: 3px solid #7657d6; outline-offset: 3px; }
+
 
 :global(*) {
 
@@ -3771,4 +3675,103 @@ h3 {
 
 }
 
+/* Stage A research workspace */
+[data-verdict="true"] { color: #246b46; }
+[data-verdict="false"] { color: #a43838; }
+.research-note { max-width: 90ch; }
+
+.app-main { width: calc(100% - 64px); max-width: 1800px; padding: 24px 0 48px; }
+.app-shell { background: #f5f6fa; }
+.card { background: #fff; border: 1px solid #e0e3ec; box-shadow: none; border-radius: 12px; padding: 24px; }
+.page-header { text-align: left; margin: 0; }
+.page-header h1 { font-size: clamp(26px, 3vw, 40px); line-height: 1.25; }
+.page-stack { gap: 24px; }
+.card h2 { font-size: 20px; margin: 0 0 18px; }
+.card h3 { font-size: 17px; }
+.card p, .card pre { overflow-wrap: anywhere; }
+.card p { line-height: 1.7; }
+.pipeline-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 0; list-style: none; }
+.pipeline-strip li { display: grid; gap: 8px; border-left: 3px solid #8b79bb; padding-left: 12px; min-width: 0; }
+.pipeline-strip span, .research-note, .video-info { color: #606676; font-size: 14px; }
+.research-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.research-grid article { min-width: 0; }
+.workspace-video video, .video-frame video { width: 100%; max-height: 520px; background: #111; border-radius: 8px; }
+.workspace-video video { display: block; }
+.research-records pre { white-space: pre-wrap; max-height: 500px; overflow: auto; }
+.research-records details { margin: 16px 0; }
+.research-records .flow-card { background: #f8f9fc; }
+button:focus-visible, summary:focus-visible, a:focus-visible, input:focus-visible + label { outline: 3px solid #6951a3; outline-offset: 3px; }
+@media (max-width: 820px) {
+  .app-main { width: calc(100% - 24px); padding-top: 16px; }
+  .card { padding: 16px; }
+  .research-grid { grid-template-columns: minmax(0, 1fr); }
+  .pipeline-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Results-only layout: no first-page or global theme changes. */
+.research-workspace .workspace-main-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start;}
+.research-workspace .workspace-result-row > *, .research-workspace .workspace-main-columns > * {min-width:0;}
+.research-workspace .verification-chain :deep(.research-data) {grid-template-columns:minmax(0,1fr);}
+.research-workspace .workspace-advanced > summary {cursor:pointer;padding:16px 0;font-weight:600;}
+.research-workspace .workspace-advanced > section {margin-top:24px;}
+.research-workspace .workspace-advanced pre {white-space:pre-wrap;overflow-wrap:anywhere;}
+@media(max-width:900px){.research-workspace .workspace-result-row,.research-workspace .workspace-main-columns{grid-template-columns:minmax(0,1fr);}}
+
+/* Phase 1.1: confined to the results workspace. */
+.research-workspace .workspace-result-row {display:grid;grid-template-columns:minmax(0,1fr);gap:16px;}
+.research-workspace .workspace-result-row .workspace-video video {width:auto;height:auto;max-width:min(100%,960px);max-height:520px;object-fit:contain;margin-inline:auto;}
+.research-workspace .workspace-result-row .result-grid {gap:12px;}
+.research-workspace .workspace-result-row .result-item {padding:12px;}
+.research-workspace .compact-pipeline {border-top:1px solid #dbe3ec;margin-top:16px;padding-top:8px;}
+.research-workspace .compact-pipeline p {margin:6px 0;}
+.research-workspace .compact-pipeline ol {display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;padding:0;margin:8px 0;}
+.research-workspace .compact-pipeline li {display:flex;gap:8px;align-items:baseline;}
+.research-workspace .compact-pipeline li:not(:last-child)::after {content:'→';margin-left:10px;}
+.research-workspace .compact-pipeline [aria-current=step] {text-decoration:underline;font-weight:600;}
+.research-workspace .research-category {border-top:1px solid #dbe3ec;padding:12px 0;min-width:0;}
+.research-workspace .research-category > summary {font-weight:600;cursor:pointer;}
+.research-workspace .research-category > :not(summary) {margin-top:12px;}
+.research-workspace .pipeline-diagnostics .flow-grid {gap:12px;}
+.research-workspace .pipeline-diagnostics .flow-card {padding:12px;border:0;}
+.research-workspace .verification-chain :deep(.research-data button) {padding:3px 7px;font-size:.85em;}
+
+/* Phase 5A: shared pastel hierarchy, without changing research controls. */
+.app-shell {background:transparent;color:#211e29;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+.page-header .brand-title {font-size:clamp(3rem,7vw,4.8rem);letter-spacing:.06em;line-height:1.1;color:#211e29;margin:0;}
+.page-header .brand-subtitle {font-size:1rem;color:#514a60;margin:0;}
+.card,.workspace-advanced {background:#fff;border:1px solid #e9e4ef;border-radius:20px;box-shadow:0 5px 22px #55437608;}
+.button.primary-button {background:#7050b1;color:#fff;border:1px solid #7050b1;font-weight:700;min-height:46px;}
+.button.primary-button:hover:not(:disabled) {background:#5d3e9b;color:#fff;}
+.button.secondary-button,.button.ghost-button {background:#f5f3f8;color:#352e43;border:1px solid #ded8e7;}
+button:disabled {opacity:.55;cursor:not-allowed;}
+button:focus-visible,a:focus-visible,summary:focus-visible {outline:3px solid #7955bc;outline-offset:3px;}
+.start-action {text-align:center;}.start-button {min-width:min(100%,320px);padding:18px 32px;font-size:1.15rem;}
+.judgment-options {display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;}
+.judgment-choice {background:#faf9fc;border:2px solid #e3deeb;border-radius:14px;padding:22px;font:inherit;font-size:1.25rem;font-weight:700;color:#282130;cursor:pointer;}
+.judgment-choice[aria-pressed=true] {background:#eee5fa;border-color:#7050b1;}
+.research-workspace .result-item {background:#fff;}
+.research-workspace .result-item:nth-child(2) {background:#eee7f8;border-color:#d9c9ef;}
+.research-workspace .compact-pipeline {padding:16px 0;margin-top:18px;}
+.research-workspace .compact-pipeline ol {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.research-workspace .compact-pipeline li {position:relative;display:flex;flex-direction:column;gap:5px;padding:12px;border-radius:12px;background:#f3f2f6;border:1px solid #e3dfea;font-size:.9rem;}
+.research-workspace .compact-pipeline li:not(:last-child)::after {position:absolute;right:-12px;top:22px;margin:0;color:#6b6178;}
+.research-workspace .compact-pipeline [data-state=completed] {background:#edf7f1;border-color:#c4dfd0;}
+.research-workspace .compact-pipeline [data-state=failed] {background:#fff0f1;border-color:#e8bfc6;}
+.research-workspace .compact-pipeline [aria-current=step] {background:#efe8fa;border-color:#8665ba;text-decoration:none;animation:stage-pulse 2s ease-in-out infinite;}
+@keyframes stage-pulse {50% {box-shadow:0 0 0 3px #8665ba25;}}
+@media(prefers-reduced-motion:reduce) {.research-workspace .compact-pipeline [aria-current=step] {animation:none;}}
+@media(max-width:560px) {.research-workspace .compact-pipeline ol {grid-template-columns:repeat(2,minmax(0,1fr));}.research-workspace .compact-pipeline li::after {display:none;}.start-button {width:100%;}}
+
+
+.research-workspace .page-header.compact {text-align:center;justify-items:center;}
+.page-stack:not(.research-workspace) > .page-header {justify-self:stretch;text-align:center;justify-items:center;}
+.research-workspace > .compact-pipeline {background:#fff;border:1px solid #e9e4ef;padding:20px;margin:0;border-radius:18px;}
+.research-workspace .workspace-actions {justify-content:center;gap:16px;flex-wrap:wrap;margin-top:24px;}
+.research-workspace .workspace-actions .button {padding:14px 24px;font-size:1.05rem;min-height:48px;}
+.research-workspace .workspace-main-columns {grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;}
+.research-workspace .verification-chain,.research-workspace .news-evidence {background:#fff;border:1px solid #e9e4ef;border-radius:20px;padding:24px;}
+.research-workspace .experiment-tool {border-top:1px solid #e9e4ef;padding:12px 0;}
+.research-workspace .experiment-tool > summary {font-weight:600;cursor:pointer;}
+.research-workspace pre {white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;}
+@media(max-width:900px){.research-workspace .workspace-main-columns {grid-template-columns:minmax(0,1fr);}}
 </style>

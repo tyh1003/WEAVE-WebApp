@@ -1,4 +1,5 @@
 import threading
+from uuid import uuid4
 
 
 PIPELINE_STEPS = [
@@ -63,6 +64,7 @@ def reset_status(filename=None):
                 "pipeline_step": "尚未開始",
                 "current_stage": "uploaded",
                 "run_id": run_id,
+                "analysis_id": str(uuid4()),
                 "pipeline_steps": PIPELINE_STEPS,
                 "retrieve_input": empty_retrieve_info(),
                 "student_prompt": empty_student_prompt(),
@@ -113,6 +115,9 @@ def set_retrieve_info(data, run_id=None):
                 "K_ext": data.get("K_ext"),
                 "uri": data.get("uri") or data.get("url") or data.get("urls") or [],
                 "not_found": data.get("not_found", False),
+                "run_id": data.get("run_id"),
+                "analysis_id": data.get("analysis_id"),
+                "evidence": data.get("evidence"),
             }
         )
         process_status["retrieve_input"] = info

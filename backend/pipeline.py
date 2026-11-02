@@ -7,6 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from status_store import (
+    process_status,
     is_current_run,
     set_retrieve_info,
     set_student_prompt,
@@ -146,9 +147,12 @@ def create_retrieve_ca_bundle():
 # Run subprocess
 # ============================================================
 
-def run_command(args, check=True):
+def run_command(args, check=True, evidence_context=None):
 
     env = os.environ.copy()
+    if evidence_context:
+        env["WEAVE_RUN_ID"] = str(evidence_context[0])
+        env["WEAVE_ANALYSIS_ID"] = evidence_context[1]
 
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
@@ -1085,7 +1089,8 @@ def run_pipeline(
                 PYTHON_EXECUTABLE,
                 "Retrieve.py"
             ],
-            check=False
+            check=False,
+            evidence_context=(run_id, process_status.get("analysis_id")) if run_id is not None else None
         )
 
 

@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -100,7 +101,7 @@ def main():
     # backend/preprocess
     #              ↓ parent
     # backend
-    base_dir = Path(__file__).resolve().parent.parent
+    base_dir = Path(os.getenv("WEAVE_WORK_DIR", str(Path(__file__).resolve().parent.parent)))
 
     output_folder = (
         base_dir

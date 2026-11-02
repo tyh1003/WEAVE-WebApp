@@ -8,14 +8,21 @@ client = genai.Client(api_key=os.environ["translate_API_KEY"])
 
 
 def translate_to_english(texts: dict) -> dict:
+    return translate_to_language(texts, 'en')
+
+
+def translate_to_language(texts: dict, target: str) -> dict:
+    if target not in ('en', 'zh'):
+        raise ValueError('Unsupported translation language')
+    language = 'Traditional Chinese (繁體中文)' if target == 'zh' else 'English'
     prompt = f"""
 You are a professional academic translator.
 
 
 
 
-Translate all values in the following JSON object from Traditional Chinese
-into clear and natural academic English.
+Translate all values in the following JSON object into clear and natural {language}.
+If a value is already in the target language, preserve it unchanged.
 
 Requirements:
 1. Preserve the original meaning exactly.
@@ -48,7 +55,7 @@ Input:
     translated = json.loads(text.strip())
 
     # 防止 Gemini 改掉或漏掉欄位
-    if set(translated.keys()) != set(texts.keys()):
+    if not isinstance(translated, dict) or set(translated.keys()) != set(texts.keys()) or any(not isinstance(v, str) or (texts[k].strip() and not v.strip()) for k, v in translated.items()):
         raise ValueError(
             "Translation response keys do not match input keys."
         )

@@ -1,19 +1,18 @@
-# Web Backend
+# WEAVE WebApp — direct Python dependencies
+# Install a CUDA/PyTorch-compatible torch build separately when required.
+
+# Web API and configuration
 Flask
 flask-cors
-Werkzeug
-
-# Configuration
-PyYAML
 python-dotenv
+PyYAML
 certifi
 
-# Gemini / Retrieval
+# Gemini and structured responses
 google-genai
 pydantic
-pandas
 
-# Machine Learning / LLM
+# Local model inference and multimodal processing
 torch
 transformers
 peft
@@ -21,15 +20,12 @@ accelerate
 bitsandbytes
 safetensors
 sentencepiece
+qwen-vl-utils
 
-# Image / Video Processing
-opencv-python
-numpy
-scikit-image
+# Article extraction and evidence processing
+trafilatura==2.0.0
 
-# OCR
-paddleocr
-python-Levenshtein
-
-# Utilities
-tqdm
+# Optional only if your installed model / image stack needs them:
+# opencv-python
+# numpy
+# Pillow
