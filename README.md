@@ -172,9 +172,25 @@ The original run is **V1**. Later user-initiated analyses are saved as separate 
 
 A changed prediction does **not** by itself prove that a corrected input or selected source is more reliable.
 
-<img width="1172" height="852" alt="螢幕擷取畫面 2026-11-02 232338" src="https://github.com/user-attachments/assets/489502c0-0c1b-4922-9c86-36902cd05d6c" />
-<img width="1169" height="843" alt="螢幕擷取畫面 2026-11-02 232318" src="https://github.com/user-attachments/assets/cb16cbe0-6bbb-4bd5-844d-836c91d1236c" />
-<img width="1347" height="404" alt="螢幕擷取畫面 2026-11-02 232243" src="https://github.com/user-attachments/assets/bedaf185-097c-4edd-bbb3-00a9551a9c8a" />
+
+<table align="center">
+  <tr>
+    <td colspan="2" align="center">
+      <img width="100%" alt="第三張圖片"
+        src="https://github.com/user-attachments/assets/bedaf185-097c-4edd-bbb3-00a9551a9c8a" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img width="100%" alt="第二張圖片"
+        src="https://github.com/user-attachments/assets/cb16cbe0-6bbb-4bd5-844d-836c91d1236c" />
+    </td>
+    <td width="50%" align="center">
+      <img width="100%" alt="第一張圖片"
+        src="https://github.com/user-attachments/assets/489502c0-0c1b-4922-9c86-36902cd05d6c" />
+    </td>
+  </tr>
+</table>
 
 
 ## Advanced Research
@@ -321,11 +337,10 @@ Representative qualitative case studies may include typical misinformation, auth
 
 **No accuracy, latency, or cost benchmark is claimed here without a documented measurement.**
 
-<!-- NEW IMAGES: Replace these comments with new case-study screenshots.
-![Typical Fake case](docs/images/case-fake.png)
-![Real case](docs/images/case-real.png)
-![High-confusion Fake case](docs/images/case-hard-fake.png)
--->
+<img width="2117" height="1249" alt="螢幕擷取畫面 2026-11-02 151318" src="https://github.com/user-attachments/assets/feb80ea8-b79c-4de8-ad60-3ac78087005a" />
+<img width="2119" height="1242" alt="螢幕擷取畫面 2026-11-02 221058" src="https://github.com/user-attachments/assets/b28dc0f2-6bad-4b75-9750-aac8a7b65103" />
+<img width="2122" height="1244" alt="螢幕擷取畫面 2026-11-02 222448" src="https://github.com/user-attachments/assets/f6388e25-bfa3-4146-b0ec-9628c8e75fe0" />
+
 
 ## Limitations
 
