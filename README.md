@@ -1,1541 +1,351 @@
-# WEAVE Web App
+# WEAVE WebApp
 
-An interactive web application for **multimodal short-video misinformation detection**, built on the **Refine–Retrieve–Reason (R³)** framework.
+**Interactive, Evidence-Driven Multimodal Short-Video Misinformation Verification**
 
-The application provides an interactive interface for uploading short-form videos, making an initial human judgment, tracking multimodal analysis progress, reviewing retrieved evidence, inspecting AI reasoning, and comparing **Human Prediction, AI Prediction, and Ground Truth**.
+WEAVE WebApp is a research prototype built on the **Refine–Retrieve–Reason (R³)** framework. It integrates multimodal short-video understanding, external evidence retrieval, lightweight model reasoning, and human interaction in a single web application.
 
-> This repository focuses on the **web application and inference pipeline integration**.
+Rather than returning only a Real/Fake label, WEAVE lets users inspect retrieved sources, review the AI explanation, correct intermediate representations, and compare successive analysis versions.
 
-> **Looking for the complete research framework, training pipeline, DSPy optimization, knowledge distillation, and experimental implementation?**  
-> See [WEAVE](https://github.com/tyh1003/WEAVE.git).
+> **Repository scope:** Web interface, runtime inference integration, evidence presentation, and interactive verification. For the complete research framework—including DSPy prompt optimization, Teacher–Student knowledge distillation, and model training—see the [WEAVE research repository](https://github.com/tyh1003/WEAVE).
 
----
+<!-- NEW IMAGE: Overview screenshot. Replace this comment with:
+![WEAVE overview](docs/images/overview.png)
+-->
 
-## Demo
+## Overview
 
-https://github.com/user-attachments/assets/cd75dd21-5c2d-44c3-9ff7-665d47ffa7a5
+Short-video misinformation can involve false narration, inaccurate captions, missing context, or real footage associated with an incorrect event, time, or location. Detecting these cases requires understanding the video's claims and visual content, then checking them against relevant background information.
 
-## Interface
+WEAVE separates the task into three stages:
 
-> Model training, Teacher–Student knowledge distillation, DSPy prompt optimization, and detailed experimental evaluation belong to the broader research implementation and are not executed during normal web inference.
+- **Refine:** Structure the textual claims and visual content.
+- **Retrieve:** Obtain internal background knowledge and externally grounded evidence.
+- **Reason:** Use a fine-tuned lightweight Student Model to predict Real/Fake and generate an explanation.
 
-<img width="2032" height="1333" alt="image (2)" src="https://github.com/user-attachments/assets/7bd9adb6-7462-4853-ae05-45877576e381" />
+The web application adds **human-first judgment, evidence inspection, interactive corrections, and versioned re-analysis**.
 
+## Key Features
 
----
+- **Video upload and analysis progress:** Submit a short video and follow the multimodal inference pipeline.
+- **Human-first judgment:** Record a Real/Fake decision before reviewing the AI result.
+- **Multimodal preprocessing:** Combine speech recognition, representative frames, and temporal visual descriptions.
+- **External evidence:** Retrieve grounded information and inspect source links and available article summaries.
+- **Human–AI comparison:** Compare the user's judgment, AI prediction, and Ground Truth when a known label is available and permitted to be displayed.
+- **Explainable results:** Present the model's reasoning in the selected Traditional Chinese or English interface language, where translation is available.
+- **Input Correction:** Revise an intermediate `Rc` or `Rv` representation and rerun the relevant analysis.
+- **Selected News:** Choose retrieved news sources to construct a revised external-evidence input.
+- **Version history:** Preserve and compare the initial analysis (V1) and subsequent versions.
+- **Research tools:** Inspect available evidence assessments, ablations, baselines, version comparisons, and pipeline diagnostics.
 
-# Overview
+<!-- NEW IMAGE: Main result with four judgment cards and reasoning.
+![Verification result](docs/images/result.png)
+-->
 
-Short-form video misinformation is difficult to detect because a claim may be distributed across multiple modalities and may involve inconsistencies between:
-
-- spoken content;
-- video titles and textual claims;
-- visual scenes;
-- temporal event information;
-- external real-world facts;
-- visual and textual context.
-
-A misleading short video does not necessarily contain manipulated imagery. A real video can also become misinformation when it is paired with an incorrect event, date, location, person, or narrative.
-
-This project therefore treats short-video fact-checking as an **evidence-driven multimodal reasoning problem**.
-
-The runtime inference workflow follows:
+## System Workflow
 
 ```text
-Short Video
-    │
-    ▼
-Human Prediction
-    │
-    ▼
-Multimodal Preprocessing
-    │
-    ├── Representative Frames
-    ├── Audio / ASR
-    └── VLM Visual Description
-    │
-    ▼
-Refine + Retrieve
-    │
-    ├── Rc
-    ├── Rv
-    ├── Kint
-    └── Kext
-    │
-    ▼
-Student Model Reasoning
-    │
-    ▼
-AI Prediction + Confidence + Explanation
-    │
-    ▼
-Human vs. AI vs. Ground Truth
+                  Short Video
+                       |
+                       v
+               Human Judgment
+                       |
+                       v
+            Multimodal Preprocessing
+             /         |         \
+            v          v          v
+         Frames     Speech ASR   Visual Description
+             \         |         /
+                       v
+                Refine + Retrieve
+                       |
+             Rc + Rv + Kint + Kext
+                       |
+                       v
+             Fine-tuned Student
+                       |
+                       v
+             Prediction + Reason
+                       |
+                       v
+          Human / AI / Ground Truth
+                       |
+             +---------+---------+
+             |                   |
+             v                   v
+       Input Correction     Selected News
+             |                   |
+             +---------+---------+
+                       |
+                       v
+              New Analysis Version
+                       |
+                       v
+                Version Comparison
 ```
 
-The core pipeline can be summarized as:
+<!-- NEW IMAGE: Updated architecture diagram.
+![System architecture](docs/images/architecture.png)
+-->
 
-**Preprocess → Refine → Retrieve → Reason**
+## Refine–Retrieve–Reason
 
----
+### Multimodal Preprocessing
 
-# Web Application
+WEAVE processes complementary information from an uploaded video:
 
-## Features
-
-- 🎬 **Short-Video Upload** — Upload a short-form video directly through the browser.
-- 👤 **Human First Prediction** — Make a Real / Fake judgment before seeing the AI result.
-- 🗳️ **Voting & Feedback** — Record user judgments and optional reasons.
-- 📊 **Vote Statistics** — Display Real / Fake voting statistics for the analyzed video.
-- 🎞️ **Multimodal Preprocessing** — Extract representative frames, audio, speech transcripts, and temporal visual descriptions.
-- 🔍 **Refine & Retrieve** — Transform raw multimodal data into structured fact-checking information.
-- 🌐 **External Evidence Retrieval** — Retrieve external information through Google Search grounding.
-- 🧠 **Student Model Reasoning** — Perform final Real / Fake classification using a fine-tuned lightweight language model.
-- 💬 **Explainable Result** — Display prediction confidence and an evidence-based explanation.
-- 🔗 **External Sources** — Present retrieved evidence sources when available.
-- ⚔️ **Human–AI Comparison** — Compare Human Prediction, AI Prediction, and Ground Truth.
-- 📈 **Analysis Progress Tracking** — Show the current state of preprocessing, retrieval, and reasoning.
-- 🌏 **Chinese / English Interface** — Switch between Traditional Chinese and English interfaces.
-- 🔄 **Dynamic Result Translation** — Translate dynamically generated analysis content for interface display without changing the original inference result.
-- 🌐 **Cross-Device Access Support** — The prototype can be accessed through a network environment for demonstration and testing.
-
-<img width="1994" height="812" alt="image (3)" src="https://github.com/user-attachments/assets/e37bef1d-70f7-4e73-a598-967718880dea" />
-
-
----
-
-# Human vs. AI Fact-Checking
-
-One of the main interaction designs of the application is that the user makes a judgment **before the AI result is revealed**.
-
-The user is first asked:
-
-> **Do you think this video is real or fake?**
-
-The Human Prediction is stored independently from the AI analysis.
-
-The AI then processes the same video through the Refine–Retrieve–Reason inference pipeline.
-
-After analysis is complete, the application presents three perspectives:
-
-| Perspective | Description |
+| Component | Role |
 | --- | --- |
-| 👤 **Your Prediction** | The user's decision made before seeing the AI result |
-| 🤖 **AI Prediction** | The final prediction generated by the Student Model |
-| ✓ **Ground Truth** | The known label for supported evaluation videos |
+| **FFmpeg / OpenCV** | Video processing and frame extraction |
+| **Whisper Large V3** | Speech transcription |
+| **Representative frames** | Sampled visual evidence |
+| **Qwen3-VL-4B-Instruct** | Temporal visual description |
 
-This design makes the application more than a passive model demonstration.
+The visual description is used to represent video content; it is not itself a final Real/Fake judgment.
 
-It allows users to directly compare:
+### Refine
 
-```text
-Human Intuition
-      vs.
-AI Reasoning
-      vs.
-Known Answer
-```
-
-When the user selects **Fake**, the interface can additionally record feedback such as:
-
-```text
-Visual / Text Mismatch
-Knowledge Error
-Other
-```
-
-The backend can also aggregate Human Predictions and return vote statistics for the currently analyzed video.
-
-<img width="1872" height="617" alt="image (4)" src="https://github.com/user-attachments/assets/67a76539-e756-4b98-850d-8b8e2325cd87" />
-
----
-
-# User Workflow
-
-## 1. Upload a Short Video
-
-The user selects a short-form video through the web interface.
-
-The browser first creates a local preview so that the user can confirm the selected video.
-
-After confirmation, the video is sent to the Flask backend.
-
-```text
-Select Video
-     │
-     ▼
-Preview
-     │
-     ▼
-Upload
-     │
-     ▼
-Create Analysis Task
-     │
-     ▼
-Start AI Pipeline
-```
-
-The backend stores the uploaded file as runtime data and starts the analysis pipeline.
-
-Uploaded videos are runtime files and are not intended to be tracked by Git.
-
----
-
-## 2. Make a Human Prediction
-
-Before the AI result is displayed, the user decides whether the video appears to be:
-
-```text
-REAL
-or
-FAKE
-```
-
-The Human Prediction is recorded separately from the model inference process.
-
-This prevents the AI result from influencing the user's initial judgment.
-
-The vote result can later be compared with:
-
-```text
-AI Prediction
-Ground Truth
-Other User Votes
-```
-
----
-
-## 3. Track Analysis Progress
-
-Video analysis contains multiple processing stages and can take significantly longer than a normal HTTP request.
-
-The frontend therefore polls the backend for the current pipeline status.
-
-Conceptually:
-
-```text
-Upload
-   │
-   ▼
-Preprocessing
-   │
-   ├── Audio Extraction
-   ├── Representative Frames
-   ├── ASR
-   └── VLM Analysis
-   │
-   ▼
-Multimodal Integration
-   │
-   ▼
-Refine + Retrieve
-   │
-   ▼
-Student Reasoning
-   │
-   ▼
-Complete
-```
-
-The frontend updates the progress interface according to the current backend state.
-
-This allows the user to observe the analysis process instead of waiting for an opaque AI response.
-
----
-
-## 4. Review Retrieved Evidence
-
-After Refine and Retrieve are completed, the web interface can display:
-
-```text
-Rc
-Rv
-Kint
-Kext
-External Sources
-```
-
-These represent:
+The Refine stage produces two representations:
 
 | Field | Meaning |
 | --- | --- |
-| `Rc` | Refined textual claim |
-| `Rv` | Refined multimodal / visual video content |
-| `Kint` | Internal background knowledge |
-| `Kext` | External background knowledge obtained through web retrieval |
+| `Rc` | Refined textual claim from available text and speech |
+| `Rv` | Refined video/visual content from multimodal observations |
 
-When external source information is available, the interface presents the corresponding links so that users can inspect the evidence themselves.
+These fields describe **what the video claims** and **what it presents**, rather than independently establishing whether those claims are true.
 
----
+### Retrieve
 
-## 5. Review the AI Result
-
-After Student Model inference is complete, the application can display:
-
-```text
-AI Prediction
-Confidence
-Explanation
-System Prompt
-User Prompt
-Rc
-Rv
-Kint
-Kext
-```
-
-The explanation is generated together with the classification result so that the prediction is accompanied by its major reasoning basis.
-
----
-
-## 6. Compare Human, AI, and Ground Truth
-
-Finally, the interface combines:
-
-```text
-Human Prediction
-AI Prediction
-Ground Truth
-```
-
-The application can indicate whether the Human Prediction and AI Prediction match the known answer.
-
-For evaluation videos, Ground Truth is retrieved independently and is **not provided to the AI model before prediction**.
-
-<img width="1856" height="1163" alt="螢幕擷取畫面 2026-06-08 210305" src="https://github.com/user-attachments/assets/e194fc47-b530-48cc-9ace-acc2633df8bc" />
-
-
----
-
-# Refine–Retrieve–Reason
-
-The project is based on an evidence-driven multimodal short-video fact-checking framework.
-
-The broader research framework contains both:
-
-```text
-Development / Training Pipeline
-```
-
-and
-
-```text
-Runtime Inference Pipeline
-```
-
-These two processes are intentionally separated.
-
----
-
-## Research / Training Pipeline
-
-During research and model development, the complete workflow includes:
-
-```text
-Preprocessing
-      │
-      ▼
-LLM Retrieve
-      │
-      ▼
-DSPy Prompt Optimization
-      │
-      ▼
-Optimized Reason Prompt
-      │
-      ▼
-Teacher Reason
-      │
-      ▼
-Distillation Dataset
-      │
-      ▼
-Student Model Training
-```
-
-DSPy and Teacher reasoning are used to create and optimize the reasoning behavior learned by the Student Model.
-
-They are **offline development components** and are not executed every time a user uploads a video.
-
----
-
-## Runtime Inference Pipeline
-
-After the Student Model has been trained, actual application inference becomes:
-
-```text
-Video
-  │
-  ▼
-Preprocess
-  │
-  ▼
-Large Multimodal Model
-Refine + Retrieve
-  │
-  ▼
-Rc + Rv + Kint + Kext
-  │
-  ▼
-Fine-tuned Student Model
-  │
-  ▼
-Prediction + Confidence + Explanation
-```
-
-This architecture reduces the need to use a large model for the final fact-checking reasoning stage.
-
----
-
-# Multimodal Preprocessing
-
-A short video contains several different types of information.
-
-The application preprocesses these inputs into a structured representation:
-
-```text
-X = {
-    Ttitle,
-    Tasr,
-    Tdesc,
-    I
-}
-```
-
-where:
-
-| Symbol | Description |
-| --- | --- |
-| `Ttitle` | Video title or available textual description |
-| `Tasr` | Speech transcript |
-| `Tdesc` | Temporal visual description produced by the VLM |
-| `I` | Ordered representative video frames |
-
-The preprocessing stage combines three major information sources:
-
-```text
-                   Short Video
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-        ▼              ▼              ▼
-Representative       Audio        Full Video
-   Frames              │              │
-        │              ▼              ▼
-        │             ASR            VLM
-        │              │              │
-        └──────────────┼──────────────┘
-                       ▼
-             Multimodal Integration
-```
-
----
-
-# Representative Frame Extraction
-
-Sending every frame of a video to a multimodal model would significantly increase:
-
-```text
-Input Size
-Token Usage
-GPU Memory
-Inference Cost
-```
-
-The preprocessing pipeline therefore extracts **up to 16 representative frames** distributed across the full duration of the video.
-
-The first and final parts of the video are retained while the remaining sampling positions are distributed across the timeline.
-
-Conceptually:
-
-```text
-Video Timeline
-
-0% -------------------------------------------- 100%
- │     │     │     │     │          │          │
- F0    F1    F2    F3   ...        F14        F15
-```
-
-Representative frames are stored in temporal order.
-
-If an individual frame cannot be decoded, the system can skip that frame without discarding the entire video.
-
-Representative frames provide the later multimodal model with **direct visual evidence**.
-
----
-
-# Speech Recognition
-
-Important claims may appear in:
-
-```text
-Narration
-Dialogue
-News Reporting
-Spoken Statements
-```
-
-rather than only in the title.
-
-The pipeline therefore extracts audio with **FFmpeg** and performs Automatic Speech Recognition.
-
-The research pipeline uses:
-
-```text
-Whisper Large V3
-```
-
-The resulting transcript is represented as:
-
-```text
-Tasr
-```
-
-If a video has no usable audio or speech transcription fails, the system can continue processing the remaining visual and textual information.
-
----
-
-# Temporal Visual Description
-
-Sixteen representative frames reduce inference cost, but sparse frame sampling may miss short-lived events.
-
-The preprocessing pipeline therefore additionally uses:
-
-```text
-Qwen3-VL-4B-Instruct
-```
-
-as a Vision-Language Model.
-
-Its role is **not to classify the video as Real or Fake**.
-
-Instead, it objectively describes the visual content of the video in temporal order.
-
-Conceptually:
-
-```text
-Video
-  │
-  ▼
-Qwen3-VL-4B-Instruct
-  │
-  ▼
-Temporal Visual Description
-  │
-  ▼
-Tdesc
-```
-
-The VLM processes video information at a higher temporal sampling density than the representative-frame input.
-
-The research implementation uses approximately:
-
-```text
-5 FPS
-Maximum 120 sampled frames per video
-```
-
-The VLM is loaded using 4-bit NF4 quantization to reduce GPU memory requirements.
-
-The combination of:
-
-```text
-Tdesc
-+
-Representative Frames
-```
-
-allows the later multimodal model to use both:
-
-- semantic temporal information; and
-- directly observable raw visual evidence.
-
----
-
-# Refine
-
-The Refine stage transforms heterogeneous video information into structured fact-checking representations.
-
-Two primary representations are created:
-
-| Field | Description |
-| --- | --- |
-| `Rc` | Refined textual claim |
-| `Rv` | Refined video / visual content |
-
----
-
-## Rc — Refined Textual Claim
-
-`Rc` is constructed from textual information such as:
-
-```text
-Video Title
-+
-Speech Transcript
-```
-
-The goal is not to fact-check the claim yet.
-
-Instead, this stage removes irrelevant noise while preserving important details such as:
-
-```text
-People
-Events
-Time
-Location
-Actions
-Claims
-```
-
-Importantly, `Rc` is kept isolated from external knowledge so that it remains a representation of **what the video claims**, rather than what external evidence says is true.
-
----
-
-## Rv — Refined Video Content
-
-`Rv` combines:
-
-```text
-Rc
-+
-VLM Temporal Description
-+
-Representative Frames
-```
-
-The model analyzes them as a temporal sequence rather than as unrelated images.
-
-The goal is to construct a structured description of:
-
-```text
-People
-Objects
-Actions
-Scenes
-Events
-Temporal Development
-Cross-modal Relationships
-```
-
-`Rv` describes **what the video visually presents**.
-
-It is not intended to directly determine whether the content is true.
-
----
-
-# Retrieve
-
-After `Rc` and `Rv` are produced, the system obtains background knowledge that can be used for fact-checking.
-
-Two forms of knowledge are generated:
-
-| Field | Description |
-| --- | --- |
-| `Kint` | Internal background knowledge |
-| `Kext` | External background knowledge retrieved through web search |
-
-The Retrieve stage therefore produces:
-
-```text
-Rc
-Rv
-Kint
-Kext
-```
-
-The runtime implementation performs multimodal reconstruction and knowledge retrieval through a large multimodal model accessed through the Gemini API.
-
----
-
-# Internal Knowledge — Kint
-
-`Kint` represents relevant background information generated from the model's internal parametric knowledge.
-
-It can include:
-
-```text
-General Facts
-Scientific Background
-Historical Context
-Geographical Information
-Event Background
-```
-
-However, model-internal knowledge may be incomplete, outdated, or incorrect.
-
-For this reason, `Kint` is **not treated as the only fact-checking source**.
-
----
-
-# External Knowledge — Kext
-
-To complement internal model knowledge, the Retrieve stage enables **Google Search grounding**.
-
-External retrieval is guided by:
-
-```text
-Rc
-+
-Rv
-```
-
-Search queries can target:
-
-```text
-Specific Events
-People
-Dates
-Locations
-Domain Knowledge
-Scientific Background
-```
-
-The retrieved information is summarized into:
-
-```text
-Kext
-```
-
-The system also attempts to preserve grounding metadata such as:
-
-```text
-Search Queries
-External Source URIs
-```
-
-when these are returned by the external search service.
-
-These source links can then be presented by the web application as **External Sources**.
-
-Because external search behavior can vary across time and API/service versions, the availability of search queries or source URIs is not guaranteed for every request.
-
----
-
-# Single-Call Retrieve Design
-
-The Retrieve implementation is designed so that several operations can be performed within a single multimodal model request:
-
-```text
-Text Reconstruction
-        │
-        ▼
-Visual / Video Reconstruction
-        │
-        ▼
-Internal Knowledge
-        │
-        ▼
-External Search Knowledge
-```
-
-This reduces repeated transmission of the same multimodal video information and allows later tasks to reuse the context created earlier in the same request.
-
-The main output remains:
-
-```json
-{
-  "Rc": "...",
-  "Rv": "...",
-  "Kint": "...",
-  "Kext": "..."
-}
-```
-
----
-
-# Reason
-
-The final fact-checking stage is performed by a fine-tuned lightweight Student Model.
-
-The Student Model does not need to independently process the original video.
-
-Instead, it receives the structured evidence generated by the previous stage:
-
-```text
-Rc
-+
-Rv
-+
-Kint
-+
-Kext
-    │
-    ▼
-Fine-tuned Student Model
-    │
-    ▼
-Prediction
-Confidence
-Explanation
-```
-
-The final structured result follows the form:
-
-```json
-{
-  "pred_label": 1,
-  "conf": 0.92,
-  "reason": "..."
-}
-```
-
-where:
+The Retrieve stage produces:
 
 | Field | Meaning |
 | --- | --- |
-| `pred_label` | `0` = Real, `1` = Fake / misleading |
-| `conf` | Prediction confidence |
-| `reason` | Evidence-based explanation |
+| `Kint` | Internal background knowledge generated by the model |
+| `Kext` | External knowledge obtained through retrieval |
 
-The explanation is generated in Traditional Chinese by the original reasoning pipeline.
+The runtime retrieval component uses the **Gemini API** and **Google Search grounding**. Available grounding links and source metadata can be retained for user inspection.
 
-The web interface may translate the displayed explanation into English when the English interface is selected.
+External search results do not guarantee successful article fetching or extraction. Some sources may be accessible only as links.
 
-Translation is a **presentation-layer function** and does not alter the original AI prediction.
+### Reason
 
----
-
-# Fact-Checking Reasoning Rules
-
-The Student Model is trained to reason about more than simple visual manipulation.
-
-The research pipeline explicitly considers misleading patterns such as:
-
-### Out-of-Context Content
-
-Real footage may be presented with an incorrect event, time, location, or description.
-
-### Geopolitical Remapping
-
-An event that occurred in one region may be falsely described as occurring somewhere else.
-
-### Specific Detail Traps
-
-Highly specific dates, names, numbers, or locations may be used to make fabricated claims appear more credible.
-
-### Context Hijacking
-
-Authentic footage may be reused to support a narrative unrelated to its original context.
-
-### Physical / Common-Knowledge Contradictions
-
-Claims that clearly conflict with stable scientific or physical knowledge can be checked against background evidence.
-
-### Cross-Modal Contradictions
-
-The textual claim may conflict with what is actually visible in the video.
-
-These patterns are reasoning guidelines rather than separate classification labels.
-
-The final task remains:
-
-```text
-0 = Real
-1 = Fake / Misleading
-```
-
----
-
-# Student Model
-
-The deployed reasoning model is based on:
-
-```text
-Gemma 3 1B IT
-+
-Fine-tuned LoRA Adapter
-```
-
-The broader training framework uses parameter-efficient fine-tuning techniques including:
-
-```text
-QLoRA
-4-bit NF4 Quantization
-PEFT / LoRA
-Weighted Supervised Fine-Tuning
-```
-
-The objective is to transfer task-specific fact-checking behavior from the larger Teacher Model to a lightweight Student Model.
-
-The Student Model focuses specifically on:
-
-```text
-Rc
-Rv
-Kint
-Kext
-      │
-      ▼
-Fact-Checking Reasoning
-      │
-      ▼
-Real / Fake
-+
-Explanation
-```
-
-rather than learning all general capabilities of the Teacher Model.
-
----
-
-# Teacher–Student Knowledge Distillation
-
-During model development, a large Teacher Model performs the Reason task using the same structured information:
-
-```text
-Rc
-Rv
-Kint
-Kext
-```
-
-The Teacher output is used to construct distillation training data for the smaller Student Model.
-
-Conceptually:
+A fine-tuned **Gemma 3 1B Student Model** performs the final reasoning step using the structured upstream information:
 
 ```text
 Rc + Rv + Kint + Kext
-          │
-          ▼
-     Teacher Model
-          │
-          ▼
-Prediction + Reason
-          │
-          ▼
-Distillation Dataset
-          │
-          ▼
-      Student Model
+          |
+          v
+ Fine-tuned Student Model
+          |
+          v
+ Prediction + Explanation
 ```
 
-After training is complete:
+The label convention is **`0 = Real`** and **`1 = Fake / Misleading`**. The original prediction and reasoning are stored separately from any display-layer translation.
+
+## Interactive Verification
+
+### Human Judgment and AI Comparison
+
+Users make an initial Real/Fake judgment before viewing the AI prediction. The result interface presents the human judgment, AI judgment, and Ground Truth where a verified label is available and disclosure is permitted.
+
+**Ground Truth is used for evaluation and comparison, not as an input to Student Model inference.**
+
+### News Evidence
+
+Retrieved news sources may provide a title, publisher, date, URL, article excerpt, or AI-generated summary. When article extraction or summarization fails, the source link may still be available.
+
+**Automatically generated summaries are not independent fact-checking results.** Source provenance and extraction metadata are maintained separately from the concise user-facing presentation.
+
+<!-- NEW IMAGE: News Evidence and Selected News.
+![News evidence](docs/images/news-evidence.png)
+-->
+
+### Input Correction
+
+Users can inspect `Rc` and `Rv` and correct an intermediate representation when it does not accurately describe the video. A correction creates a new analysis version, preserving the original result.
+
+### Selected News
+
+Users can select available retrieved sources to construct a revised external-evidence input (`Kext`) for a new version. This makes it possible to examine how different evidence selections affect the subsequent Student prediction and explanation.
+
+### Version Comparison
+
+The original run is **V1**. Later user-initiated analyses are saved as separate versions rather than overwriting V1. Version comparison allows users to inspect changes in inputs, evidence, predictions, and explanations.
+
+A changed prediction does **not** by itself prove that a corrected input or selected source is more reliable.
+
+<!-- NEW IMAGE: Input Correction and Version Comparison.
+![Version comparison](docs/images/version-comparison.png)
+-->
+
+## Advanced Research
+
+WEAVE includes research-oriented tools for inspecting the relationship between evidence and model outputs. Depending on the available saved data, these include:
+
+| Tool | Purpose |
+| --- | --- |
+| Evidence Assessment | Inspect claim–source relationships |
+| Evidence-grounded Explanation | Present additional source-associated analysis |
+| Evidence Ablation | Compare outcomes with modified evidence availability |
+| Source-grounded Baseline | Provide an evidence-oriented reference analysis |
+| Version Comparison | Compare saved versions and their outputs |
+| Pipeline Diagnostics / Research Data | Inspect execution records and provenance |
+
+Some tools perform additional analysis after the Student prediction. Their outputs should **not** be interpreted as the Student Model's original internal reasoning.
+
+## Research vs. Runtime Pipeline
+
+The broader research project includes development-time stages such as **DSPy prompt optimization, Teacher Model reasoning, distillation dataset construction, and Student Model fine-tuning**.
 
 ```text
-Teacher Reasoning
+Research / Training:
+Preprocess -> Retrieve -> DSPy Optimization -> Teacher Reason
+           -> Distillation Dataset -> Student Fine-tuning
+
+Web Runtime:
+Preprocess -> Refine + Retrieve -> Trained Student -> Result
 ```
 
-is removed from the online inference path.
+Training and prompt optimization are **not executed for every uploaded video**. See the [WEAVE research repository](https://github.com/tyh1003/WEAVE) for the broader implementation.
 
-This means the deployed web application performs:
+## Technology Stack
 
-```text
-Preprocess
-   ↓
-Large Model Retrieve
-   ↓
-Student Model Reason
-```
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Vue 3, Vite, JavaScript, Tailwind CSS |
+| Backend | Python, Flask |
+| Video / audio | FFmpeg, OpenCV, Whisper Large V3 |
+| Visual understanding | Qwen3-VL-4B-Instruct |
+| Retrieval | Gemini API, Google Search grounding |
+| Student reasoning | Gemma 3 1B, PyTorch, Transformers, PEFT / LoRA |
+| Research / training | DSPy, Teacher–Student distillation, QLoRA |
 
-instead of requiring another expensive large-model call for final classification.
+## Getting Started
 
----
+### Requirements
 
-# DSPy Prompt Optimization
-
-The broader research pipeline uses **DSPy** to optimize the Reason prompt.
-
-DSPy is used during development for:
-
-```text
-Reason Prompt Optimization
-```
-
-and does **not** run whenever a user uploads a video.
-
-The development pipeline is:
-
-```text
-Preprocess
-    ↓
-LLM Retrieve
-    ↓
-DSPy Prompt Optimization
-    ↓
-Optimized Reason Prompt
-    ↓
-Teacher Reason
-    ↓
-Distillation Dataset
-    ↓
-Student Model Training
-```
-
-The deployed runtime pipeline remains:
-
-```text
-Preprocess
-    ↓
-LLM Retrieve
-    ↓
-Student Model Reason
-```
-
-This distinction is important because the web application repository primarily demonstrates **inference and system integration**, not the complete model-training workflow.
-
----
-
-# System Architecture
-
-The web application follows a frontend–backend architecture.
-
-```text
-┌──────────────────────────────────────────────┐
-│                Vue 3 Frontend                │
-│                                              │
-│ Upload · Preview · Vote · Progress · Result  │
-│ Evidence · Translation · Human–AI Comparison │
-└─────────────────────┬────────────────────────┘
-                      │
-                      │ HTTP / JSON
-                      ▼
-┌──────────────────────────────────────────────┐
-│                Flask Backend                 │
-│                                              │
-│ Upload · Vote · Status · Translation · APIs  │
-│              Pipeline Control                │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────┐
-│          Multimodal Preprocessing            │
-│                                              │
-│ Representative Frames · Audio · ASR · VLM    │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────┐
-│            Refine + Retrieve                 │
-│                                              │
-│       Rc · Rv · Kint · Kext                  │
-│          Google Search Grounding             │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────┐
-│          Fine-tuned Student Model            │
-│                                              │
-│        Label · Confidence · Explanation      │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────┐
-│               Result Interface               │
-│                                              │
-│ Human · AI · Ground Truth · Evidence         │
-│ Vote Statistics · External Sources           │
-└──────────────────────────────────────────────┘
-```
-
-<img width="1920" height="1080" alt="Step1_ 影像萃取與拼貼 - 1" src="https://github.com/user-attachments/assets/53268367-39f2-410f-8e9f-5964646afe6a" />
-
----
-
-# Backend API
-
-The Vue frontend communicates with the Flask backend through HTTP APIs.
-
-| Endpoint | Method | Description |
-| --- | --- | --- |
-| `/` | GET | Backend health check |
-| `/upload` | POST | Upload a video and start the analysis pipeline |
-| `/status` | GET | Retrieve the current analysis progress |
-| `/result` | GET | Retrieve Refine / Retrieve evidence |
-| `/student_result` | GET | Retrieve the final Student Model prediction and explanation |
-| `/vote` | POST | Store the user's Human Prediction |
-| `/vote/statistics` | GET | Retrieve aggregated voting statistics |
-| `/translate` | POST | Translate dynamically generated analysis content for interface display |
-
-The `/translate` endpoint is used for interface presentation.
-
-It does **not** modify the original AI inference result and does not participate in the Student Model's Real / Fake decision.
-
----
-
-# Asynchronous Analysis
-
-Video processing can take significantly longer than a standard HTTP request.
-
-For this reason, `/upload` does not block until the entire AI pipeline has completed.
-
-Conceptually:
-
-```text
-POST /upload
-      │
-      ├── Save Runtime Video
-      ├── Create Analysis Task
-      └── Start Pipeline
-                │
-                │ background execution
-                ▼
-GET /status ◄── Frontend Polling
-                │
-                ▼
-         Analysis Complete
-                │
-        ┌───────┴────────┐
-        ▼                ▼
- GET /result      GET /student_result
-```
-
-This allows the frontend to display the current processing progress while the backend continues executing the multimodal pipeline.
-
----
-
-# Processing Pipeline
-
-The runtime processing pipeline can be summarized as:
-
-```text
-Uploaded Video
-      │
-      ├──────────────────────────────┐
-      │                              │
-      ▼                              ▼
-Audio Extraction              Visual Processing
-      │                              │
-      ▼                       ┌──────┴──────┐
-Whisper ASR                   ▼             ▼
-      │                16 Representative   VLM
-      │                     Frames          │
-      │                                      ▼
-      │                              Temporal Description
-      │
-      └──────────────┬───────────────────────┘
-                     ▼
-             Multimodal Integration
-                     │
-                     ▼
-              Refine + Retrieve
-                     │
-          ┌──────────┼──────────┐
-          │          │          │
-          ▼          ▼          ▼
-         Rc         Rv      Kint + Kext
-                     │
-                     ▼
-              Student Reasoning
-                     │
-                     ▼
-       Prediction + Confidence + Explanation
-```
-
-Where possible, independent preprocessing tasks are executed concurrently to reduce unnecessary waiting time.
-
----
-
-# Translation and Bilingual Interface
-
-The application supports Traditional Chinese and English interface modes.
-
-Static interface text is handled by the frontend.
-
-Dynamically generated analysis content can be translated through the backend, including items such as:
-
-```text
-Rc
-Rv
-Kint
-Kext
-Explanation
-```
-
-The important separation is:
-
-```text
-Original AI Pipeline
-        │
-        ▼
-Original Analysis Result
-        │
-        ├── Traditional Chinese Display
-        │
-        └── Translation → English Display
-```
-
-The translation layer does not change:
-
-```text
-pred_label
-confidence
-original reasoning result
-```
-
-and does not participate in model inference.
-
----
-
-# Tech Stack
-
-## Frontend
-
-- Vue 3
-- Vite
-- Tailwind CSS
-- JavaScript
-
-## Backend
-
-- Python
-- Flask
-- Flask-CORS
-
-## Multimodal Processing
-
+- Node.js and npm
+- Python and the dependencies specified by the repository
 - FFmpeg
-- OpenCV
-- Whisper Large V3
-- Qwen3-VL-4B-Instruct
-- Transformers
+- A compatible CUDA/GPU environment for local multimodal models
+- Required model weights and fine-tuned adapter files
+- Gemini API credentials for external retrieval
 
-## Retrieval & AI
+Running the frontend alone is substantially less demanding than running the complete AI pipeline.
 
-- Gemini API
-- Google Search Grounding
-- Gemma 3 1B IT
-- Hugging Face Transformers
-- PEFT / LoRA
-- PyTorch
-- bitsandbytes
-
-## Research / Training
-
-- DSPy
-- MIPROv2
-- Teacher–Student Knowledge Distillation
-- QLoRA
-- 4-bit NF4 Quantization
-- Weighted Supervised Fine-Tuning
-
----
-
-# Project Structure
-
-```text
-Refine-Retrieve-Reason-FakeNews-WebApp/
-│
-├── backend/
-│   │
-│   ├── config/
-│   │   └── student_bot_config.yaml
-│   │
-│   ├── model/
-│   │   └── best_model/
-│   │       ├── adapter_config.json
-│   │       ├── adapter_model.safetensors
-│   │       ├── chat_template.jinja
-│   │       ├── tokenizer.json
-│   │       └── tokenizer_config.json
-│   │
-│   ├── preprocess/
-│   │   ├── 1.Extract_Frames.py
-│   │   ├── 1.Video2Wav.py
-│   │   ├── 2.Frames_Compress.py
-│   │   ├── 2.Wav2Transcript.py
-│   │   ├── 3.Frames2OCR.py
-│   │   └── 4.Data_Merge.py
-│   │
-│   ├── Retrieve.py
-│   ├── app.py
-│   ├── database.py
-│   ├── pipeline.py
-│   ├── run_student.py
-│   ├── status_store.py
-│   ├── student_bot.py
-│   ├── test_model.py
-│   ├── translator.py
-│   └── vote_api.py
-│
-├── public/
-│
-├── src/
-│   ├── assets/
-│   ├── components/
-│   ├── App.vue
-│   ├── main.js
-│   └── style.css
-│
-├── .gitignore
-├── answer.jsonl
-├── requirements.txt
-├── index.html
-├── package.json
-├── package-lock.json
-├── postcss.config.js
-├── tailwind.config.js
-├── vite.config.js
-└── README.md
-```
-
-Runtime-generated content such as:
-
-```text
-.env
-uploaded videos
-temporary audio
-extracted frames
-preprocessing outputs
-runtime databases
-generated inference results
-```
-
-should not be committed to version control.
-
----
-
-# Installation
-
-## Prerequisites
-
-Before running the application, prepare:
-
-- Node.js / npm
-- Python
-- FFmpeg
-- A CUDA-capable environment for local quantized models
-- A Gemini API key
-- Required Python AI / multimodal dependencies
-
-GPU-specific packages may depend on the CUDA and PyTorch versions used by the target machine.
-
----
-
-## 1. Clone the Repository
+### Clone the Repository
 
 ```bash
-git clone https://github.com/tyh1003/Refine-Retrieve-Reason-FakeNews-WebApp.git
-cd Refine-Retrieve-Reason-FakeNews-WebApp
+git clone https://github.com/tyh1003/WEAVE-WebApp.git
+cd WEAVE-WebApp
 ```
 
----
-
-## 2. Install Frontend Dependencies
+### Frontend
 
 ```bash
 npm install
+npm run dev
 ```
 
----
+Open the local URL shown by Vite.
 
-## 3. Create a Python Environment
+### Backend
 
-For example:
+Create a Python environment:
 
 ```bash
 python -m venv .venv
 ```
 
-Windows:
+Activate it on Windows (PowerShell):
 
-```bash
-.venv\Scripts\activate
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
-Then install the Python dependencies:
+Or on macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies from the project root:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Depending on the target hardware, additional GPU-specific installations may be required for PyTorch, bitsandbytes, and multimodal models.
-
----
-
-## 4. Configure Environment Variables
-
-Create a local `.env` file.
-
-For example:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-> Do not commit `.env` or private API credentials to GitHub.
-
----
-
-# Running the Web App
-
-The frontend and backend run separately during development.
-
-## Start the Backend
-
-Open a terminal:
+Then start the backend:
 
 ```bash
 cd backend
 python app.py
 ```
 
-The Flask backend is typically available at:
+The frontend and backend run as separate processes in development. Host, port, and proxy settings depend on the local configuration.
 
-```text
-http://127.0.0.1:5000
+> **Note:** Model downloads, adapter paths, GPU-specific packages, and API configuration may require additional setup. These are basic development entry points, not a guarantee that full inference will run on every machine.
+
+### Environment Configuration
+
+Configure required backend credentials locally, for example:
+
+```dotenv
+GEMINI_API_KEY=your_api_key_here
 ```
 
-The exact host configuration may be changed when testing access from another device on the same or an accessible network.
+Never commit actual API keys, `.env` files, or private credentials. When accessing the frontend from another device, ensure that its API base URL points to the reachable backend rather than the browser device's `localhost`.
+
+## Repository Structure
+
+```text
+WEAVE-WebApp/
+├── backend/          # Flask APIs, inference integration, evidence logic
+├── src/              # Vue application and components
+├── public/           # Static assets
+├── experiments/      # Research utilities, where included
+├── docs/
+│   └── images/       # Reserved for new screenshots and diagrams
+├── package.json
+├── requirements.txt
+├── vite.config.js
+└── README.md
+```
+
+The exact contents of some directories depend on the checked-out revision.
+
+## Evaluation and Demonstration
+
+WEAVE is intended as an **interactive research prototype**. A demonstration can show the initial human judgment, AI prediction, retrieved evidence, an input correction or news selection, and the resulting version comparison.
+
+Representative qualitative case studies may include typical misinformation, authentic content, and misleading narratives built around real events. Where available, single-run profiling can document stage latency, API activity, and token usage.
+
+**No accuracy, latency, or cost benchmark is claimed here without a documented measurement.**
+
+<!-- NEW IMAGES: Replace these comments with new case-study screenshots.
+![Typical Fake case](docs/images/case-fake.png)
+![Real case](docs/images/case-real.png)
+![High-confusion Fake case](docs/images/case-hard-fake.png)
+-->
+
+## Limitations
+
+- **External-source availability:** Search results and source accessibility vary over time.
+- **Article extraction:** Some pages may time out, reject extraction, or exceed size limits.
+- **Evidence quality:** Retrieved information and AI-generated summaries are not independently verified facts.
+- **Model reliability:** AI predictions and explanations may be inaccurate.
+- **Ground Truth coverage:** Verified labels are available only for supported items and subject to disclosure rules.
+- **Resource requirements:** Local multimodal models require compatible hardware; external APIs may incur costs.
+- **Interpretation:** Interactive edits and ablations illustrate sensitivity to evidence, not guaranteed improvement or causal faithfulness.
+
+WEAVE is a **research prototype**, not a production fact-checking authority.
+
+## Related Research Repository
+
+**[WEAVE — Refine–Retrieve–Reason Research Framework](https://github.com/tyh1003/WEAVE)**
+
+The research repository contains the broader model development and experimental pipeline, while this repository focuses on interactive web inference and evidence inspection.
 
 ---
 
-## Start the Frontend
-
-Open another terminal in the project root:
-
-```bash
-npm run dev
-```
-
-Vite will display the frontend URL in the terminal.
-
-Open the displayed address in a browser.
-
----
-
-# Ground Truth
-
-`answer.jsonl` stores known labels for supported evaluation videos.
-
-The label convention is:
-
-```text
-0 → Real
-1 → Fake
-```
-
-Ground Truth is used for **evaluation and interface comparison only**.
-
-It is not provided to the Student Model as part of the input used to make the prediction.
-
-The intended comparison is:
-
-```text
-Human Prediction
-       vs.
-AI Prediction
-       vs.
-Ground Truth
-```
-
-without leaking the correct answer into the inference process.
-
----
-
-# External Evidence
-
-The system distinguishes between two different evidence sources:
-
-```text
-Kint
-```
-
-Model-internal background knowledge.
-
-and:
-
-```text
-Kext
-```
-
-External information retrieved through Google Search grounding.
-
-When grounding metadata is available, the system can additionally store:
-
-```text
-Search Queries
-Source URIs
-```
-
-The web application can then expose these sources to the user for manual inspection.
-
-External evidence availability depends on the behavior of the search service and is therefore not guaranteed for every analysis.
-
----
-
-# Why Refine–Retrieve–Reason?
-
-Traditional short-video misinformation detection systems may rely primarily on:
-
-```text
-Visual Features
-Text Features
-Social Context
-Model Internal Knowledge
-```
-
-However, real-world misinformation often requires checking whether a video has been:
-
-```text
-Misdated
-Mislocated
-Misattributed
-Taken Out of Context
-Paired with False Captions
-Combined with Incorrect Background Claims
-```
-
-The Refine–Retrieve–Reason design separates the task into three roles:
-
-### Refine
-
-Understand and structure what the video claims and visually presents.
-
-### Retrieve
-
-Collect relevant internal and external knowledge.
-
-### Reason
-
-Compare the claim, visual evidence, and retrieved knowledge to determine whether the video is Real or misleading.
-
-This separation improves the transparency of the inference process and allows the final lightweight reasoning model to operate on structured evidence rather than raw heterogeneous multimedia.
-
----
-
-# Research Background
-
-This web application is the interactive demonstration interface for a broader research project on **low-cost, evidence-driven multimodal short-video misinformation detection**.
-
-The complete research pipeline explores:
-
-- multimodal short-video understanding;
-- temporal visual information extraction;
-- Automatic Speech Recognition;
-- Refine–Retrieve–Reason reasoning;
-- Retrieval-Augmented Generation;
-- Google Search grounded evidence retrieval;
-- explainable misinformation detection;
-- DSPy automated prompt optimization;
-- Teacher–Student knowledge distillation;
-- Gemma-based lightweight reasoning;
-- QLoRA / NF4 model adaptation;
-- reducing expensive large-model inference while preserving task-specific fact-checking capability.
-
-The research separates **large-model evidence preparation** from **lightweight final reasoning**.
-
-The deployed application therefore follows:
-
-```text
-Large Multimodal Model
-        │
-        │ Refine + Retrieve
-        ▼
-Rc + Rv + Kint + Kext
-        │
-        ▼
-Fine-tuned Student Model
-        │
-        │ Reason
-        ▼
-Prediction + Explanation
-```
-
-The goal of this repository is to turn that inference framework into an **accessible, observable, and interactive web application**.
-
-For the complete research implementation, experimental pipeline, prompt optimization, knowledge distillation, and evaluation code, see:
-
-[WEAVE](https://github.com/tyh1003/WEAVE.git)
-
----
+**WEAVE WebApp** · Interactive Multimodal Short-Video Misinformation Verification
