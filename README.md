@@ -329,17 +329,52 @@ WEAVE-WebApp/
 
 The exact contents of some directories depend on the checked-out revision.
 
+
 ## Evaluation and Demonstration
 
-WEAVE is intended as an **interactive research prototype**. A demonstration can show the initial human judgment, AI prediction, retrieved evidence, an input correction or news selection, and the resulting version comparison.
+WEAVE demonstrates its misinformation verification capabilities through three representative cases, covering both correct predictions and model errors.
 
-Representative qualitative case studies may include typical misinformation, authentic content, and misleading narratives built around real events. Where available, single-run profiling can document stage latency, API activity, and token usage.
+These examples illustrate how the system presents verification results and explanations under different prediction outcomes.
 
-**No accuracy, latency, or cost benchmark is claimed here without a documented measurement.**
+### Case Studies
 
-<img width="2117" height="1249" alt="螢幕擷取畫面 2026-11-02 151318" src="https://github.com/user-attachments/assets/feb80ea8-b79c-4de8-ad60-3ac78087005a" />
-<img width="2119" height="1242" alt="螢幕擷取畫面 2026-11-02 221058" src="https://github.com/user-attachments/assets/b28dc0f2-6bad-4b75-9750-aac8a7b65103" />
-<img width="2122" height="1244" alt="螢幕擷取畫面 2026-11-02 222448" src="https://github.com/user-attachments/assets/f6388e25-bfa3-4146-b0ec-9628c8e75fe0" />
+**Case 1: Fake News — Correct Prediction**
+
+- Ground Truth: **Fake**
+- AI Prediction: **Fake**
+- Result: **Correct**
+
+The system successfully identifies misleading content and provides an explanation supporting its prediction.
+
+<img width="100%" alt="Fake News - Correct Prediction" src="https://github.com/user-attachments/assets/feb80ea8-b79c-4de8-ad60-3ac78087005a" />
+
+**Case 2: Real News — Correct Prediction**
+
+- Ground Truth: **Real**
+- AI Prediction: **Real**
+- Result: **Correct**
+
+The system correctly recognizes authentic content and presents the corresponding reasoning.
+
+<img width="100%" alt="Real News - Correct Prediction" src="https://github.com/user-attachments/assets/b28dc0f2-6bad-4b75-9750-aac8a7b65103" />
+
+**Case 3: Fake News — Incorrect Prediction**
+
+- Ground Truth: **Fake**
+- AI Prediction: **Real**
+- Result: **Incorrect**
+
+This case highlights a limitation of the model, demonstrating that misleading content may still be incorrectly classified as authentic.
+
+<img width="100%" alt="Fake News - Incorrect Prediction" src="https://github.com/user-attachments/assets/f6388e25-bfa3-4146-b0ec-9628c8e75fe0" />
+
+### Discussion
+
+These examples demonstrate both the capabilities and limitations of WEAVE. While the system can correctly identify authentic and misleading content, incorrect predictions remain possible.
+
+Through evidence inspection, input correction, and versioned re-analysis, users can further examine the verification process rather than relying solely on the initial AI prediction.
+
+**Note:** These examples are qualitative demonstrations and do not represent overall model accuracy or benchmark performance.
 
 
 ## Limitations
