@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { displayText } from '../researchInspector.js'
 import { unifiedNews, summaryReader, newsSelection, newsPreview } from '../workspaceNews.js'
 import { evidenceView,searchSources,safeUrl,verifiedExcerpt } from '../evidence.js'
 const props=defineProps({version:Object,result:Object,retrieve:Object,locale:String,experimentId:String,request:Function,summaryEnabled:Boolean,submit:Function,busy:Boolean,rerunError:String})
@@ -40,17 +41,18 @@ async function rerun(){
 }
 const statusLabel=s=>({completed:ui('摘要已完成','Summary completed'),pending:ui('摘要處理中','Summary processing'),running:ui('摘要處理中','Summary processing'),failed:ui('摘要產生失敗','Summary failed'),skipped:ui('摘要不可用','Summary unavailable'),partial:ui('摘要部分完成','Summaries partially completed'),ineligible:ui('無合格摘要文章','No eligible articles'),unavailable:ui('尚無自動摘要','No automatic summary'),loading:ui('讀取摘要狀態中','Loading summary status'),error:ui('摘要狀態讀取失敗','Could not load summary status')})[s] || ui('尚無自動摘要','No automatic summary')
 const autoSummary=c=>c.auto?.status==='completed' ? c.auto.summary : c.saved?.summary_origin==='selected_automatic_summary' ? c.saved.summary : null
-const title=c=>{const s=c.source;const value=s.article_title || c.auto?.title || c.saved?.title || s.source_title || s.title;return value && !/^(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}$/i.test(value.trim())?value:ui('文章標題未提供','Article title not provided')}
+const title=c=>{const s=c.source;const value=s.article_title || c.auto?.title || c.saved?.title || s.source_title || s.title;return value && !/^(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}$/i.test(value.trim())?value:site(s)}
 const url=s=>[s.resolved_url,s.source_url,s.original_url,s.url].map(safeUrl).find(Boolean)
 const site=s=>s.source_site || (url(s)?new URL(url(s)).hostname:ui('未提供','Not provided'))
-const date=s=>{const raw=s.published_date || s.published_at;if(!raw)return ui('日期未提供','Date not provided');const d=new Date(raw);return Number.isNaN(d.getTime())?raw:d.toLocaleDateString(props.locale==='en'?'en-GB':'zh-TW',{timeZone:'UTC',year:'numeric',month:'short',day:'numeric'})}
+const date=s=>{const raw=s.published_date || s.published_at;if(!raw)return '';const d=new Date(raw);return Number.isNaN(d.getTime())?raw:d.toLocaleDateString(props.locale==='en'?'en-GB':'zh-TW',{timeZone:'UTC',year:'numeric',month:'short',day:'numeric'})}
 const body=s=>{if(s.retrieval_status!=='fetched' || !['full_article','partial_article'].includes(s.content_quality) || !s.article_text)return '';const excerpt=verifiedExcerpt(s);return excerpt && s.article_text.includes(excerpt)?excerpt:s.article_text}
 const hasContent=c=>!!(autoSummary(c) || body(c.source))
 const displayCards=computed(()=>cards.value.filter(c=>hasContent(c) || url(c.source)))
 </script>
 <template>
  <div class="workspace-news">
-  <p v-if="!displayCards.length" class="news-empty">{{ ui('目前沒有可用的新聞來源。','No news sources are available.') }}</p>
+  <p v-if="!displayCards.length" class="news-empty">{{ ui('本次未取得外部新聞來源。','No external news sources retrieved.') }}</p>
+  <details v-if="!displayCards.length && (retrieve?.supplemental_grounding?.status || retrieve?.initial_grounding_candidates?.length || version?.failed_stage)" class="source-notes"><summary>{{ui('檢索紀錄','Retrieval record')}}</summary><p v-if="version?.failed_stage">{{ui('失敗階段','Failed stage')}} · {{version.failed_stage}}</p><p v-if="retrieve?.supplemental_grounding?.status">Fallback · {{retrieve.supplemental_grounding.status}}</p><pre v-if="retrieve?.initial_grounding_candidates?.length">{{displayText(retrieve.initial_grounding_candidates)}}</pre></details>
   <template v-if="!displayCards.length && summaryState.error">
    <p role="alert">{{ summaryState.error }}</p>
    <button type="button" @click="refresh">{{ ui('重新讀取摘要狀態','Reload summary status') }}</button>
@@ -66,15 +68,15 @@ const displayCards=computed(()=>cards.value.filter(c=>hasContent(c) || url(c.sou
 
   <div v-if="eligibleKeys.length" class="selection-tools"><button type="button" :disabled="!eligibleKeys.length" @click="selected=[...new Set(eligibleKeys)]">{{ ui('全選可用新聞','Select all eligible news') }}</button> <button type="button" :disabled="!selected.length" @click="selected=[]">{{ ui('清除選取','Clear selection') }}</button></div>
   <article v-for="c in displayCards" :key="c.key" class="news-card">
-   <template v-if="hasContent(c)">
-    <label><input type="checkbox" :disabled="!newsSelection(c).key" v-model="selected" :value="newsSelection(c).key" :aria-label="ui('選取新聞','Select news')+': '+title(c)" />{{ ui(' 選取新聞',' Select news') }}</label>
-    <h3>[{{ c.source.source_id || '—' }}] {{ title(c) }}</h3>
-    <p>{{ site(c.source) }} · {{ date(c.source) }}</p>
+   <details class="source-card-details">
+    <summary><strong>{{ title(c) }}</strong><small>{{ body(c.source) ? ui('已取得文章正文','Article text available') : ui('原文未取得','Article text unavailable') }}</small></summary>
+    <p>{{ c.source.source_id || '—' }} · {{ site(c.source) }} <span v-if="date(c.source)">· {{ date(c.source) }}</span></p>
     <template v-if="autoSummary(c)"><small>{{ ui('AI 自動摘要','AI automatic summary') }}</small><p class="full">{{ autoSummary(c) }}</p></template>
-    <template v-else><small>{{ ui('新聞原文摘錄','Article excerpt') }}</small><p class="preview">{{ body(c.source).slice(0,450) }}</p></template>
-    <a v-if="url(c.source)" :href="url(c.source)" target="_blank" rel="noopener noreferrer">{{ ui('閱讀原文','Read source') }}</a>
-   </template>
-   <a v-else :href="url(c.source)" target="_blank" rel="noopener noreferrer">{{ url(c.source) }}</a>
+    <template v-else-if="body(c.source)"><small>{{ ui('新聞原文摘錄','Article excerpt') }}</small><p class="full">{{ body(c.source).slice(0,450) }}</p></template>
+    <p v-if="!body(c.source) && (c.source.extraction_error || c.source.retrieval_error || c.source.retrieval_status)">{{ displayText(c.source.extraction_error || c.source.retrieval_error || c.source.retrieval_status) }}</p>
+    <a v-if="url(c.source)" :href="url(c.source)" target="_blank" rel="noopener noreferrer">{{ ui('閱讀來源','Open source') }}</a>
+   </details>
+   <label v-if="hasContent(c)"><input type="checkbox" :disabled="!newsSelection(c).key" v-model="selected" :value="newsSelection(c).key" :aria-label="ui('選取新聞','Select news')+': '+title(c)" />{{ ui(' 選取新聞',' Select news') }}</label>
   </article>
   <details class="kext-preview"><summary>{{ ui('選取新聞產生的 K_ext 預覽','Selected-news K_ext preview') }}</summary>
    <pre v-if="preview">{{ preview }}</pre><p v-else>{{ ui('目前未選取新聞 · K_ext 為空','No news selected · empty K_ext') }}</p>
@@ -88,4 +90,5 @@ const displayCards=computed(()=>cards.value.filter(c=>hasContent(c) || url(c.sou
 <style scoped>
 .workspace-news,article{min-width:0}article{border-top:1px solid #dbe3ec;padding:16px 0}p,h3,a,summary,blockquote{overflow-wrap:anywhere}.preview{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.full,pre,blockquote{white-space:pre-wrap;overflow-wrap:anywhere}pre{max-height:400px;overflow:auto}h3{font-size:1rem}summary{cursor:pointer;margin-top:10px}:focus-visible{outline:3px solid #7657d6}
 .news-rerun{display:block;background:#7050b1;color:white;border:0;border-radius:10px;padding:14px 20px;font:inherit;font-weight:600;margin-top:14px}button:disabled{opacity:.55;cursor:not-allowed}.selection-tools{display:flex;flex-wrap:wrap;gap:8px}.selection-tools button{padding:6px 10px;border:1px solid #ded8e7;border-radius:8px;background:#f7f5fa;color:#30283c}
+.source-card-details>summary{padding:10px 8px;margin:0;line-height:1.5;background:#faf9fc;border-radius:8px}.source-card-details>summary small{display:inline-block;margin-inline-start:.75em;color:#5b5268}.source-card-details+label{display:inline-block;margin-top:8px}
 </style>

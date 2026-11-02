@@ -80,7 +80,7 @@
 
       <section v-else class="page-stack research-workspace">
         <header class="page-header compact"><h1 class="brand-title">WEAVE</h1><p class="brand-subtitle">Video Misinformation Verification</p></header>
-        <WorkspaceVersions :versions="versions" :selected="selectedVersion" :locale="locale" @select="selectVersion" />
+        <WorkspaceVersions :versions="versions" :selected="selectedVersion" :locale="locale" @select="id => selectVersion(id, true)" />
         <p v-if="mainActionError" role="alert" class="error-text">{{ mainActionError }}</p>
           <div class="compact-pipeline" aria-label="Pipeline Status">
             <p><strong>{{ ui("分析流程", "Pipeline Status") }}</strong> · {{ ui("目前／最新工作", "Current / latest job") }}: {{ pipelineJob ? `V${pipelineJob.version_number} · ${localizedJobStatus(pipelineJob.status)}` : translateStatus(processStatus) }}</p>
@@ -145,165 +145,12 @@
           </section>
           <section class="card news-evidence">
             <h2>{{ ui("03 · 新聞來源", "03 · News Evidence") }}</h2>
-            <WorkspaceNews :key="`${experimentSession?.experiment_id}-${selectedVersion || activeAnalysisId}`" :version="currentVersion" :result="studentResult" :retrieve="retrieveResult" :locale="locale" :experiment-id="experimentSession?.experiment_id" :request="researchRequest" :summary-enabled="experiment?.results_revealed === true" :submit="submitSourceGrounded" :busy="researchBusy || selectedNewsSubmitting" />
+            <WorkspaceNews :key="`${experimentSession?.experiment_id}-${selectedVersion || activeAnalysisId}`" :version="currentVersion" :result="studentResult" :retrieve="retrieveResult" :locale="locale" :experiment-id="experimentSession?.experiment_id" :request="researchRequest" :summary-enabled="experiment?.results_revealed === true" :submit="submitSelectedNews" :busy="researchBusy || selectedNewsSubmitting" />
           </section>
         </div>
         <details class="workspace-advanced">
           <summary>{{ ui("進階研究", "Advanced Research") }}</summary>
-          <details class="research-category" data-category="evidence">
-            <summary>{{ ui("證據評估", "Evidence Assessment") }}</summary>
-          <GroundedExplanation v-if="currentVersion?.status === 'succeeded'" :key="currentVersion.version_id" :version-id="currentVersion.version_id" :request="researchRequest" />
-          <p v-if="currentVersion?.experiment_type === 'evidence_ablation' && currentVersion.ablation_mode !== 'source_level'">{{ ui('此版本已排除 K_ext 輸入通道；下方來源是父版本搜尋紀錄，未作為文章輸入傳給 Student。', 'K_ext was excluded. Sources below are parent research records, not article inputs sent to Student.') }}</p>
-          <EvidenceAssessmentControl v-if="currentVersion?.status === 'succeeded'" :key="`${experimentSession?.experiment_id}-${currentVersion.version_id}`" :version-id="currentVersion.version_id" :request="researchRequest" :locale="locale" @assessment="versionAssessment = $event" />
-          <EvidencePanel v-if="studentReady" :key="`${activeAnalysisId}-${uploadedVideoId}`" :result="studentResult" :retrieve="retrieveResult" :assessment="versionAssessment" :video-url="videoUrl" :locale="locale" @seek="seekWorkspace" />
-          <p v-else>{{ ui("尚無可評估的判斷結果。", "No judgment is available for assessment.") }}</p>
-          </details>
-          <details class="research-category" data-category="experiments">
-            <summary>{{ ui("研究實驗", "Research Experiments") }}</summary>
-          <p v-if="currentVersion?.status !== 'succeeded'">{{ ui('請選取已完成版本以進行研究實驗。', 'Select a completed version to run research experiments.') }}</p>
-          <template v-else><details class="experiment-tool"><summary>Evidence Ablation</summary><EvidenceAblation :request="researchRequest" :versions="versions" :version="currentVersion" :busy="researchBusy" :locale="locale" @submit="submitAblation" @select="selectVersion" /></details><details class="experiment-tool"><summary>Source-grounded Baseline</summary><SourceGroundedBaseline :version="currentVersion" :request="researchRequest" :busy="researchBusy" :locale="locale" @submit="submitSourceGrounded" /></details><details class="experiment-tool"><summary>Source-aware K_ext</summary><SourceAwareBaseline :version="currentVersion" :request="researchRequest" :busy="researchBusy" :locale="locale" @submit="submitSourceGrounded" /></details></template>
-            <details id="version-comparison"><summary>{{ ui("版本比較", "Version Comparison") }}</summary>
-
-          <VersionComparison :versions="versions" :selected="selectedVersion" :locale="locale" :human="experiment?.human_judgment" :ground-truth="experiment?.correct_answer" :busy="researchBusy" @retry="submitSourceGrounded" @select="selectVersion" />
-            </details>
-          </details>
-          <details class="research-category" data-category="data">
-            <summary>{{ ui("研究資料", "Research Data") }}</summary>
-            <RuntimeProfile :version-id="currentVersion?.version_id" :request="researchRequest" :locale="locale" />
-          <details class="research-records" :key="`technical-${activeAnalysisId}-${uploadedVideoId}`">
-            <summary>{{ ui('技術細節：Prompt、保存輸出與批次紀錄', 'Technical details: prompts, saved outputs and batch records') }}</summary>
-            <p class="research-note">{{ ui('以下 Prompt 為展示用文字，未驗證與模型實際送入內容逐字一致。保存結果為 API 回傳資料，不等於完整原始生成回應。', 'Prompts below are display text, not verified verbatim model inputs. Saved API results are not the complete raw generation response.') }}</p>
-            <details class="analysis-details">
-              <summary>{{ ui("Retrieve 保存資料", "Saved Retrieve data") }}</summary>
-            <div class="field-list">
-
-              <InfoBlock :label="locale === 'zh' ? '待查核主張（Rc）' : 'Claims to check (Rc)'" :value="translatedRetrieveDisplayFields.Rc" />
-              <InfoBlock :label="locale === 'zh' ? '影片描述（Rv，模型整理）' : 'Video description (Rv, model refinement)'" :value="translatedRetrieveDisplayFields.Rv" />
-              <InfoBlock :label="locale === 'zh' ? '模型背景知識（K_int，非外部證據）' : 'Model background (K_int, not external evidence)'" :value="translatedRetrieveDisplayFields.K_int" />
-              <InfoBlock :label="locale === 'zh' ? '搜尋資訊的模型整理（K_ext，非來源原文）' : 'Model synthesis of search (K_ext, not source text)'" :value="translatedRetrieveDisplayFields.K_ext" />
-            </div>
-
-
-
-            </details>
-            <details class="analysis-details">
-              <summary>{{ ui("Student 展示用 Prompt", "Student display prompts") }}</summary>
-            <div class="field-list">
-
-              <InfoBlock label="system prompt" :value="studentPromptDisplayFields.system_prompt" />
-
-              <InfoBlock label="user prompt" :value="studentPromptDisplayFields.user_prompt" />
-
-              <InfoBlock :label="locale === 'zh' ? '待查核主張（Rc）' : 'Claims to check (Rc)'" :value="studentPromptDisplayFields.Rc" />
-
-              <InfoBlock :label="locale === 'zh' ? '影片描述（Rv，模型整理）' : 'Video description (Rv, model refinement)'" :value="studentPromptDisplayFields.Rv" />
-
-              <InfoBlock :label="locale === 'zh' ? '模型背景知識（K_int，非外部證據）' : 'Model background (K_int, not external evidence)'" :value="studentPromptDisplayFields.K_int" />
-
-              <InfoBlock :label="locale === 'zh' ? '搜尋資訊的模型整理（K_ext，非來源原文）' : 'Model synthesis of search (K_ext, not source text)'" :value="studentPromptDisplayFields.K_ext" />
-
-            </div>
-
-            </details>
-            <details><summary>{{ ui('保存的分析結果與批次資訊', 'Saved analysis results and batch information') }}</summary><pre>{{ JSON.stringify({ analysis_id: activeAnalysisId, retrieve: retrieveResult, result: studentResult, student_prompt: statusStudentPrompt }, null, 2) }}</pre></details>
-          </details>
-          </details>
-          <details class="research-category pipeline-diagnostics" data-category="pipeline">
-            <summary>{{ ui("流程診斷", "Pipeline Diagnostics") }}</summary>
-            <p>{{ ui('所選版本', 'Selected version') }}: {{ currentVersion ? `V${currentVersion.version_number} · ${localizedJobStatus(currentVersion.status)}` : '—' }}</p>
-            <p>{{ ui('目前／最新工作', 'Current / latest job') }}: {{ pipelineJob ? `V${pipelineJob.version_number} · ${localizedJobStatus(pipelineJob.status)}` : '—' }}<span v-if="pipelineJob?.failed_stage"> · {{ pipelineJob.failed_stage }}</span></p>
-            <details :key="`pipeline-details-${activeAnalysisId}-${uploadedVideoId}`"><summary>{{ ui('查看執行詳情', 'View Execution Details') }}</summary>
-            <p v-if="pipelineError" class="error-text">{{ pipelineError }}</p>
-            <p v-if="currentVersion?.error && currentVersion.error !== pipelineError" class="error-text">{{ currentVersion.error }}</p>
-            <pre>{{ JSON.stringify({selected_version: currentVersion, latest_job: pipelineJob}, null, 2) }}</pre>
-            <p>{{ pipelineStepLabel(pipelineStep) }}</p>
-        <section class="flow-grid" :key="`pipeline-${activeAnalysisId}-${uploadedVideoId}`">
-
-          <article class="card flow-card preprocess-card">
-
-            <div class="flow-title">
-
-
-              <div>
-
-                <h2>{{ t("preprocessing") }}</h2>
-
-                <p>{{ translateStatus(preprocessStatusText) }}</p>
-
-              </div>
-
-            </div>
-
-
-
-            <ol class="step-list">
-
-              <li
-
-                v-for="(step, index) in preprocessDisplaySteps"
-
-                :key="step"
-
-                :class="stepStateClass(index)"
-
-              >
-
-                <span></span>
-
-                {{ pipelineStepLabel(step) }}
-
-              </li>
-
-            </ol>
-
-          </article>
-
-
-
-          <article class="card flow-card retrieve-card">
-
-            <div class="flow-title">
-
-
-              <div>
-
-                <h2>{{ locale === "zh" ? "主張整理與搜尋" : "Claims and search" }}</h2>
-
-                <p>{{ translateStatus(retrieveStatusText) }}</p>
-
-              </div>
-
-            </div>
-
-
-
-
-          </article>
-
-
-
-          <article class="card flow-card student-card">
-
-            <div class="flow-title">
-
-
-              <div>
-
-                <h2>{{ t("studentModel") }}</h2>
-                <p>{{ translateStatus(studentStatusText) }}</p>
-
-              </div>
-
-            </div>
-
-
-
-
-          </article>
-
-        </section>
-          </details>
-          </details>
+          <ResearchInspector :key="experimentSession?.experiment_id" :versions="versions" :selected="selectedVersion" :request="researchRequest" :locale="locale" />
         </details>
       </section>
     </main>
@@ -314,19 +161,12 @@
 <script setup>
 import WorkspaceVersions from './components/WorkspaceVersions.vue'
 import WorkspaceNews from './components/WorkspaceNews.vue'
-import RuntimeProfile from './components/RuntimeProfile.vue'
-import EvidenceAblation from './components/EvidenceAblation.vue'
-import SourceGroundedBaseline from './components/SourceGroundedBaseline.vue'
-import GroundedExplanation from './components/GroundedExplanation.vue'
-import SourceAwareBaseline from './components/SourceAwareBaseline.vue'
-import EvidenceAssessmentControl from './components/EvidenceAssessmentControl.vue'
+import ResearchInspector from './components/ResearchInspector.vue'
 import InputCorrection from './components/InputCorrection.vue'
-import VersionComparison from './components/VersionComparison.vue'
-import EvidencePanel from './components/EvidencePanel.vue'
 import ResearchData from './components/ResearchData.vue'
 import EvidenceText from './components/EvidenceText.vue'
 
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 
 
 
@@ -343,7 +183,6 @@ const NOT_FOUND_TEXT = "未查到"
 
 const experimentSession = ref(null), experiment = ref(null), versions = ref([])
 const selectedVersion = ref(null), pendingVersion = ref(null), versionError = ref('')
-const versionAssessment = ref(null)
 let researchGeneration = 0
 const researchBusy = computed(() => versions.value.some(v => ['pending','running'].includes(v.status)))
 const currentVersion = computed(() => versions.value.find(v => v.version_id === selectedVersion.value))
@@ -372,12 +211,13 @@ async function restoreExperiment() {
 }
 const correctionEditor = ref(null)
 const correctionSubmitting = ref(false)
-function selectVersion(id) {
+let inspectCachedTranslationsOnly = false
+function selectVersion(id, inspectOnly = false) {
   const v = versions.value.find(v => v.version_id === id)
   if (!v) return
   if (id !== selectedVersion.value && correctionEditor.value?.canLeave() === false) return
+  inspectCachedTranslationsOnly = inspectOnly
   researchGeneration++
-  versionAssessment.value = null
   selectedVersion.value = id; activeAnalysisId.value = id
   if (experimentSession.value) {
     experimentSession.value.selected_version_id = id
@@ -402,32 +242,19 @@ async function submitCorrection(payload) {
   } catch (error) { if (scope === experimentSession.value?.experiment_id) versionError.value = error.message }
   finally { correctionSubmitting.value=false;correctionEditor.value?.finishSubmission() }
 }
-async function submitAblation(payload) {
-  if (researchBusy.value) return
-  const scope = experimentSession.value?.experiment_id
-  try {
-    versionError.value = ''
-    const v = await researchRequest('/versions', {method:'POST', body:JSON.stringify({experiment_type:'evidence_ablation', ...payload})})
-    if (scope !== experimentSession.value?.experiment_id) return
-    pendingVersion.value = v.version_id
-    await refreshOutputs()
-  } catch (error) { if (scope === experimentSession.value?.experiment_id) versionError.value = error.message }
-}
 const selectedNewsSubmitting = ref(false)
-async function submitSourceGrounded(payload) {
-  const selectedNews = payload.experiment_type === 'selected_news'
-  if (researchBusy.value || selectedNewsSubmitting.value) { if(selectedNews) throw new Error('A research version is already running'); return }
-  if(selectedNews) selectedNewsSubmitting.value=true
+async function submitSelectedNews(payload) {
+  if (researchBusy.value || selectedNewsSubmitting.value) { throw new Error('A research version is already running') }
+  selectedNewsSubmitting.value=true
   const scope=experimentSession.value?.experiment_id
   try {
     versionError.value=''
-    const v=await researchRequest('/versions',{method:'POST',body:JSON.stringify({experiment_type:'source_grounded_baseline',...payload})})
+    const v=await researchRequest('/versions',{method:'POST',body:JSON.stringify({...payload,experiment_type:'selected_news'})})
     if(scope!==experimentSession.value?.experiment_id)return
     pendingVersion.value=v.version_id
     await refreshOutputs()
     return v
-  } catch(error){if(scope===experimentSession.value?.experiment_id && !selectedNews)versionError.value=error.message;if(selectedNews)throw error}
-  finally{if(selectedNews)selectedNewsSubmitting.value=false}
+  } finally { selectedNewsSubmitting.value=false }
 }
 const aggregateSubmitting = ref(false)
 async function submitAggregateVote() {
@@ -455,6 +282,7 @@ function toggleLocale() {
   locale.value = locale.value === "zh" ? "en" : "zh"
 }
 async function setLocale(lang) {
+  inspectCachedTranslationsOnly = false
   locale.value = lang
 
   await translateDynamicContent()
@@ -670,137 +498,6 @@ function t(key, params = {}) {
 // System Prompt — display only
 // 不影響 Backend 實際送給 Student Model 的 Prompt
 // ============================================================
-
-const systemPromptZh = `你是一位專業的多模態事實查核專家，專精於辨識短影音中的假訊息、敘事操縱以及「脫離上下文」的誤導資訊。你的任務是嚴格根據提供的「內部背景知識」以及「外部背景知識」來驗證「文字內容」與「影像內容」描述的短影音之真實性。
-
-在分析過程中，請特別警覺以下高階欺騙手段：
-
-1. 脫離上下文：影像本身可能是真實的，但被賦予了錯誤的時間、地點或事件描述。
-2. 地理政治重新映射：將事件發生的地點竄改為其他地區以達到特定目的。
-3. 具體細節陷阱：在敘事中加入極其具體的細節（如精確的時間、人名）來增加可信度，但整體結論與事實不符。
-4. 上下文劫持：利用真實的視覺證據來支持一個完全不相關且虛假的敘事結論。
-5. 違背物理常識的內容：影像或文字描述中包含明顯違反物理定律或常識的元素。
-6. 影像內容與文字描述的矛盾：影像中顯示的事件、人物或環境與文字描述的內容存在明顯不一致。
-
-請採取以下思考步驟進行分析：
-
-1. 文字分析：解析「文字內容」中的核心主張、時間、地點及關鍵事件。
-2. 影像分析：分析「影像內容」的視覺描述，確認影像內容是否支持「文字內容」的主張。
-3. 知識比對：將「文字內容」與「影像內容」共同與「內部背景知識」及「外部背景知識」進行交叉比對，檢查是否存在矛盾或資訊缺失。
-   - 重要：需要共同參考「內部背景知識」與「外部背景知識」，避免過度依賴單一知識來源。
-   - 重要：比對過程中，若外部背景知識無明確資訊能驗證短影音的內容，先檢查是否存在上述的高階欺騙手段，若無則可僅依據內部背景知識進行判斷。
-   - 重要：若影片內容中沒有提供完整之日期與時間，不要預設其他時間欄位的內容。
-4. 綜合判定：基於上述比對，評估該短影音內容的真實程度。
-
-請嚴格依照以下 JSON 格式回傳：
-
-{
-  "pred_label": 0,
-  "reason": "Provide a concise and objective explanation of the judgment in English without unnecessary description."
-}
-
-欄位輸出限制：
-- pred_label：只能輸出 0 或 1。0 代表完全真實，1 代表存在誤導或矛盾。
-- reason：使用英文提供簡潔且明確的判定理由。
-- 所有輸出皆為純文字。
-- reason 必須以英文輸出。`
-
-
-const systemPromptEn = `You are a professional multimodal fact-checking expert specializing in identifying misinformation, narrative manipulation, and out-of-context misleading information in short-form videos. Your task is to strictly verify the authenticity of the short-form video described by the Textual Content and Visual Content based on the provided Internal Background Knowledge and External Background Knowledge.
-
-During the analysis, pay particular attention to the following advanced deception techniques:
-
-1. Out-of-context manipulation: The visual content itself may be authentic but associated with an incorrect time, location, or event description.
-2. Geopolitical remapping: The actual location of an event may be altered and reassigned to another region for a specific purpose.
-3. Specific-detail traps: Highly specific details, such as exact times or names, may be inserted into a narrative to increase credibility even when the overall conclusion is inconsistent with the facts.
-4. Context hijacking: Authentic visual evidence may be used to support an unrelated or false narrative.
-5. Violations of physical common sense: The visual or textual content may contain elements that clearly violate physical laws or common sense.
-6. Contradictions between visual and textual content: The events, individuals, or environments shown in the video may be inconsistent with the textual description.
-
-Follow these reasoning steps:
-
-1. Text Analysis: Identify the core claims, time, location, and key events in the Textual Content.
-2. Visual Analysis: Analyze the Visual Content and determine whether it supports the claims made in the Textual Content.
-3. Knowledge Verification: Cross-check the Textual Content and Visual Content against both the Internal Background Knowledge and External Background Knowledge to identify contradictions or missing information.
-   - Important: Both internal and external background knowledge should be considered to avoid over-reliance on a single source.
-   - Important: If the external background knowledge does not provide sufficient information for verification, first examine whether any of the advanced deception techniques described above are present. If none are identified, the judgment may be based on the internal background knowledge.
-   - Important: If the video does not provide a complete date and time, do not infer unspecified temporal information.
-4. Final Assessment: Based on the above comparisons, evaluate the authenticity of the short-form video.
-
-Return the result strictly in the following JSON format:
-
-{
-  "pred_label": 0,
-  "reason": "Provide a concise and objective explanation of the judgment in English without unnecessary description."
-}
-
-Output constraints:
-- pred_label: The authenticity classification label. It must be either 0 or 1. 0 represents authentic content, while 1 represents content containing misleading information or contradictions.
-- reason: Provide a concise and explicit explanation in English.
-- All outputs must be plain text.`
-
-
-// 根據目前 UI 語言決定展示哪一版
-const systemPromptDisplay = computed(() =>
-  locale.value === "en" ? systemPromptEn : systemPromptZh
-)
-
-
-// ============================================================
-// User Prompt — display only
-// ============================================================
-
-const userPromptDisplay = computed(() => {
-  const rc = result.value?.Rc ?? ""
-  const rv = result.value?.Rv ?? ""
-  const kInt = result.value?.K_int ?? ""
-  const kExt = result.value?.K_ext ?? ""
-
-  if (locale.value === "en") {
-    return `Determine the authenticity of the short-form video strictly based on the provided background knowledge and provide the reasoning for the judgment.
-
-- Textual Content (Rc): ${rc}
-- Visual Content (Rv): ${rv}
-- Internal Background Knowledge (K_int): ${kInt}
-- External Background Knowledge (K_ext): ${kExt}`
-  }
-
-  return `你需要嚴格根據背景知識來判斷短影音真偽並輸出判斷依據。
-
-- 文字內容：${rc}
-- 影像內容：${rv}
-- 內部背景知識：${kInt}
-- 外部背景知識：${kExt}`
-})
-
-
-// ============================================================
-// InfoBlock
-// ============================================================
-
-const InfoBlock = defineComponent({
-  props: {
-    label: {
-      type: String,
-      required: true,
-    },
-
-    value: {
-      type: [String, Number, Array, Object, Boolean],
-      default: null,
-    },
-  },
-
-  setup(props) {
-    const formattedValue = computed(() => formatValue(props.value))
-
-    return () =>
-      h("div", { class: "info-block" }, [
-        h("span", { class: "info-label" }, props.label),
-        h("div", { class: "info-value" }, formattedValue.value),
-      ])
-  },
-})
 
 function voteText(vote) {
   if (vote === "true") return t("real")
@@ -1204,77 +901,6 @@ const studentResultEmptyText = computed(() => {
 
 
 
-const studentPromptFields = computed(() => {
-
-  const prompt = statusStudentPrompt.value || {}
-
-  const retrieve = retrieveFields.value
-
-
-
-  return {
-
-    system_prompt: prompt.system_prompt || "",
-
-    user_prompt: prompt.user_prompt || buildStudentUserPrompt(retrieve),
-
-    Rc: prompt.Rc ?? retrieve.Rc,
-
-    Rv: prompt.Rv ?? retrieve.Rv,
-
-    K_int: prompt.K_int ?? retrieve.K_int,
-
-    K_ext: prompt.K_ext ?? retrieve.K_ext,
-
-  }
-
-})
-
-const studentPromptDisplayFields = computed(() => {
-  if (!studentStarted.value) {
-    return blankStudentPromptFields()
-  }
-
-  if (
-    currentStage.value === "student" &&
-    !hasMeaningfulData(studentPromptFields.value)
-  ) {
-    return fillStudentPromptFields(RUNNING_TEXT)
-  }
-
-  if (
-    (currentStage.value === "done" || currentStage.value === "error") &&
-    !studentReady.value
-  ) {
-    return fillStudentPromptFields(NOT_FOUND_TEXT)
-  }
-
-  const original = studentPromptFields.value
-
-  // 中文 UI：維持原始中文內容
-  if (locale.value !== "en") {
-    return {
-      ...original,
-      system_prompt: systemPromptZh,
-      user_prompt: buildDisplayUserPrompt("zh"),
-    }
-  }
-
-  // 英文 UI
-  return {
-    ...original,
-    system_prompt: systemPromptEn,
-    user_prompt: buildDisplayUserPrompt("en"),
-
-    Rc: translatedContent.value.Rc || original.Rc,
-    Rv: translatedContent.value.Rv || original.Rv,
-    K_int: translatedContent.value.K_int || original.K_int,
-    K_ext: translatedContent.value.K_ext || original.K_ext,
-  }
-})
-
-
-
 const activeStepIndex = computed(() => {
 
   const exactIndex = pipelineSteps.indexOf(pipelineStep.value)
@@ -1412,6 +1038,7 @@ async function translateDynamicContent() {
   const current = () => seq === translationSequence && batch === activeAnalysisId.value && upload === uploadRequestSeq && target === locale.value
   if (lastTranslationKey.value !== key) translatedContent.value = {}
   if (translationCache.has(key)) { translatedContent.value=translationCache.get(key);lastTranslationKey.value=key;translationLoading.value=false;return }
+  if (inspectCachedTranslationsOnly) { translationLoading.value=false; return }
   if (Date.now()-(translationFailures.get(key)||0)<60000) {translationLoading.value=false;return}
   translationLoading.value=true
   try {
@@ -2073,103 +1700,6 @@ function normalizeStudentResult(data) {
   return result
 
 }
-
-function buildDisplayUserPrompt(lang) {
-  const original = studentPromptFields.value
-
-  const rc =
-    lang === "en"
-      ? translatedContent.value.Rc || original.Rc || ""
-      : original.Rc || ""
-
-  const rv =
-    lang === "en"
-      ? translatedContent.value.Rv || original.Rv || ""
-      : original.Rv || ""
-
-  const kInt =
-    lang === "en"
-      ? translatedContent.value.K_int || original.K_int || ""
-      : original.K_int || ""
-
-  const kExt =
-    lang === "en"
-      ? translatedContent.value.K_ext || original.K_ext || ""
-      : original.K_ext || ""
-
-  if (lang === "en") {
-    return [
-      "Determine whether the video content is real or fake based on the following information, and output pred_label and reason.",
-      "",
-      "Rc:",
-      formatValue(rc),
-      "",
-      "Rv:",
-      formatValue(rv),
-      "",
-      "K_int:",
-      formatValue(kInt),
-      "",
-      "K_ext:",
-      formatValue(kExt),
-    ].join("\n")
-  }
-
-  return [
-    "請根據以下資料判斷影片內容為真或假，並輸出 pred_label 與 reason。",
-    "",
-    "Rc:",
-    formatValue(rc),
-    "",
-    "Rv:",
-    formatValue(rv),
-    "",
-    "K_int:",
-    formatValue(kInt),
-    "",
-    "K_ext:",
-    formatValue(kExt),
-  ].join("\n")
-}
-
-function buildStudentUserPrompt(retrieve) {
-
-  if (!hasMeaningfulData(retrieve)) return ""
-
-
-
-  return [
-
-    "請根據以下資料判斷影片內容為真或假，並輸出 pred_label 與 reason。",
-
-    "",
-
-    "Rc:",
-
-    formatValue(retrieve.Rc),
-
-    "",
-
-    "Rv:",
-
-    formatValue(retrieve.Rv),
-
-    "",
-
-    "K_int:",
-
-    formatValue(retrieve.K_int),
-
-    "",
-
-    "K_ext:",
-
-    formatValue(retrieve.K_ext),
-
-  ].join("\n")
-
-}
-
 
 
 function applyCorrectAnswerFields(data) {
