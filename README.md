@@ -8,9 +8,7 @@ Rather than returning only a Real/Fake label, WEAVE lets users inspect retrieved
 
 > **Repository scope:** Web interface, runtime inference integration, evidence presentation, and interactive verification. For the complete research framework—including DSPy prompt optimization, Teacher–Student knowledge distillation, and model training—see the [WEAVE research repository](https://github.com/tyh1003/WEAVE).
 
-<!-- NEW IMAGE: Overview screenshot. Replace this comment with:
-![WEAVE overview](docs/images/overview.png)
--->
+<img width="2527" height="1354" alt="螢幕擷取畫面 2026-11-02 150735" src="https://github.com/user-attachments/assets/8dc2409e-6987-48f5-bac5-21d738ab3c03" />
 
 ## Overview
 
