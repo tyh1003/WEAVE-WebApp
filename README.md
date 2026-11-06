@@ -40,45 +40,8 @@ The web application adds **human-first judgment, evidence inspection, interactiv
 
 ## System Workflow
 
-```text
-                  Short Video
-                       |
-                       v
-               Human Judgment
-                       |
-                       v
-            Multimodal Preprocessing
-             /         |         \
-            v          v          v
-         Frames     Speech ASR   Visual Description
-             \         |         /
-                       v
-                Refine + Retrieve
-                       |
-             Rc + Rv + Kint + Kext
-                       |
-                       v
-             Fine-tuned Student
-                       |
-                       v
-             Prediction + Reason
-                       |
-                       v
-          Human / AI / Ground Truth
-                       |
-             +---------+---------+
-             |                   |
-             v                   v
-       Input Correction     Selected News
-             |                   |
-             +---------+---------+
-                       |
-                       v
-              New Analysis Version
-                       |
-                       v
-                Version Comparison
-```
+<img width="1155" height="927" alt="image" src="https://github.com/user-attachments/assets/102bb383-e4a5-4fcd-b3ce-728cc245a38e" />
+
 
 
 ## Refine–Retrieve–Reason
